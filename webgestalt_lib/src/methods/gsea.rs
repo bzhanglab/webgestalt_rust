@@ -3,6 +3,9 @@ use std::{
     time::Instant,
 };
 
+use rand::prelude::SliceRandom;
+use rand::{Rng, SeedableRng};
+use rand::rngs::SmallRng;
 use crate::readers::utils::Item;
 use rayon::prelude::*;
 use rustc_hash::FxHashSet;
@@ -54,8 +57,9 @@ fn gene_set_p(genes: &Vec<String>, ranks: &[f64], item: &Item, p: f64, permutati
     );
     let perm_es = Arc::new(Mutex::new(Vec::new()));
     (0..permutations).into_par_iter().for_each(|_i| {
-        let new_order = fastrand::choose_multiple(0..(gene_size), gene_size);
-        println!("{:?}", new_order);
+        let mut smallrng = rand::rngs::SmallRng::from_entropy();
+        let new_order = (0..(gene_size)).collect::<Vec<usize>>().choose_multiple(&mut smallrng, gene_size).map(|x| x.clone()).collect();
+        // println!("{:?}", new_order);
         perm_es.lock().unwrap().push(enrichment_score(
             &has_gene,
             &new_ranks,

@@ -232,12 +232,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "fastrand"
-version = "2.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6999dc1837253364c2ebb0704ba97994bd874e8f195d665c50b7548f6ea92764"
-
-[[package]]
 name = "getrandom"
 version = "0.2.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -638,7 +632,7 @@ name = "webgestalt_lib"
 version = "0.1.0"
 dependencies = [
  "csv",
- "fastrand",
+ "rand",
  "rayon",
  "rustc-hash",
  "statrs",

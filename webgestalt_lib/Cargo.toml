@@ -8,7 +8,7 @@ edition = "2021"
 
 [dependencies]
 csv = "1.2.2"
-fastrand = "2.0.0"
+rand = {version= "0.8.5", features=["small_rng"]}
 rayon = "1.7.0"
 rustc-hash = "1.1.0"
 statrs = "0.16.0"
