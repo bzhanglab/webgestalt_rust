@@ -3,6 +3,7 @@
 [package]
 name = "webgestalt_rust"
 version = "0.1.0"
+authors = ["John Elizarraras"]
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -10,3 +11,7 @@ edition = "2021"
 [dependencies]
 clap = { version = "4.3.21", features = ["derive"] }
 webgestalt_lib = {path = "webgestalt_lib"}
+
+[profile.release]
+opt-level = 3
+debug = 1
