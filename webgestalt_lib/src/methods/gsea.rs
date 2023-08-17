@@ -1,4 +1,7 @@
-use std::{sync::{Arc, Mutex}, time::Instant};
+use std::{
+    sync::{Arc, Mutex},
+    time::Instant,
+};
 
 use crate::readers::utils::Item;
 use rayon::prelude::*;
@@ -19,9 +22,9 @@ impl RankListItem {
         }
         (phenotypes, ranks)
     }
-} 
+}
 
-fn gene_set_p(genes: &Vec<String>, ranks: &[f64], item: &Item, p: f64, permutations: usize) {
+fn gene_set_p(genes: &Vec<String>, ranks: &[f64], item: &Item, p: f64, permutations: usize) -> f64 {
     let gene_set = FxHashSet::from_iter(item.parts.iter());
     let mut n_r: f64 = 0.0;
     let mut n_miss: f64 = 0.0;
@@ -35,39 +38,43 @@ fn gene_set_p(genes: &Vec<String>, ranks: &[f64], item: &Item, p: f64, permutati
             n_miss += 1.0;
         }
     }
-    let initial_max_score: f64 = 1.0 - n_miss * inverse_size_dif;
     let inverse_nr = 1.0 / n_r;
     let original_order = 0..(gene_size - 1);
     let has_gene: Vec<bool> = genes.par_iter().map(|x| gene_set.contains(x)).collect();
     let new_ranks: Vec<f64> = ranks
         .par_iter()
-        .enumerate()
-        .map(|(i, x)| x.powf(p))
+        .map(|x| x.powf(p))
         .collect();
     let real_es = enrichment_score(
-        &gene_set,
         &has_gene,
         &new_ranks,
         original_order.collect(),
-        p,
         inverse_size_dif,
         inverse_nr,
-        initial_max_score,
     );
     let perm_es = Arc::new(Mutex::new(Vec::new()));
     (0..permutations).into_par_iter().for_each(|_i| {
         let new_order = fastrand::choose_multiple(0..(gene_size), gene_size);
+        println!("{:?}", new_order);
         perm_es.lock().unwrap().push(enrichment_score(
-            &gene_set,
             &has_gene,
             &new_ranks,
             new_order,
-            p,
             inverse_size_dif,
             inverse_nr,
-            initial_max_score,
         ));
     });
+    println!("{:?}, {:?}", real_es, perm_es.lock().unwrap()[0]);
+    let x = perm_es
+        .lock()
+        .unwrap()
+        .par_iter()
+        .filter(|x| x.abs() > real_es.abs())
+        .collect::<Vec<&f64>>()
+        .len() as f64
+        / (permutations as f64);
+    println!("{:?}", x);
+    x
 }
 
 fn enrichment_score(
@@ -76,16 +83,14 @@ fn enrichment_score(
     order: Vec<usize>,
     inverse_size_dif: f64,
     inverse_nr: f64,
-    initial_max: f64,
 ) -> f64 {
-    let mut max_score = initial_max;
+    let mut max_score: f64 = 0.0;
     let mut sum_hits = 0.0;
     let mut sum_miss = 0.0;
     for i in 0..(genes.len() - 1) {
         if genes[order[i]] {
             sum_hits += ranks[i];
-        }
-        else {
+        } else {
             sum_miss += 1.0;
         }
         let es = sum_hits * inverse_nr - sum_miss * inverse_size_dif;
