@@ -42,7 +42,7 @@ fn gene_set_p(genes: &Vec<String>, ranks: &[f64], item: &Item, p: f64, permutati
     let new_ranks: Vec<f64> = ranks
         .par_iter()
         .enumerate()
-        .map(|(i, x)| x.powf(p) * if has_gene[i] { 1.0 } else { 0.0 })
+        .map(|(i, x)| x.powf(p))
         .collect();
     let real_es = enrichment_score(
         &gene_set,
@@ -57,7 +57,6 @@ fn gene_set_p(genes: &Vec<String>, ranks: &[f64], item: &Item, p: f64, permutati
     let perm_es = Arc::new(Mutex::new(Vec::new()));
     (0..permutations).into_par_iter().for_each(|_i| {
         let new_order = fastrand::choose_multiple(0..(gene_size), gene_size);
-        let start = Instant::now();
         perm_es.lock().unwrap().push(enrichment_score(
             &gene_set,
             &has_gene,
@@ -68,31 +67,26 @@ fn gene_set_p(genes: &Vec<String>, ranks: &[f64], item: &Item, p: f64, permutati
             inverse_nr,
             initial_max_score,
         ));
-        let duration = start.elapsed();
-        println!("New Hash\nTime took: {:?}", duration);
     });
 }
 
 fn enrichment_score(
-    gene_set: &FxHashSet<&String>,
     genes: &Vec<bool>,
     ranks: &[f64],
     order: Vec<usize>,
-    p: f64,
     inverse_size_dif: f64,
     inverse_nr: f64,
     initial_max: f64,
 ) -> f64 {
     let mut max_score = initial_max;
+    let mut sum_hits = 0.0;
+    let mut sum_miss = 0.0;
     for i in 0..(genes.len() - 1) {
-        let mut sum_hits = 0.0;
-        let mut sum_miss = 0.0;
-        for j in 0..i {
-            let r = ranks[order[j]];
-            match r {
-                0.0 => sum_miss += 1.0,
-                _ => sum_hits += r,
-            }
+        if genes[order[i]] {
+            sum_hits += ranks[i];
+        }
+        else {
+            sum_miss += 1.0;
         }
         let es = sum_hits * inverse_nr - sum_miss * inverse_size_dif;
         if es.abs() > max_score.abs() {
@@ -106,9 +100,8 @@ pub fn get_gsea(mut gene_list: Vec<RankListItem>, gmt: Vec<Item>) {
     println!("Starting GSEA Calculation.");
     gene_list.sort_by(|a, b| b.rank.partial_cmp(&a.rank).unwrap());
     let (phenotypes, ranks) = RankListItem::to_vecs(gene_list);
-    let mut res: Vec<GSEAResult<f64, Vec<String>>> = Vec::new();
+    // let mut res: Vec<GSEAResult<f64, Vec<String>>> = Vec::new();
     gmt.par_iter().for_each(|x| {
         gene_set_p(&phenotypes, &ranks, x, 1.0, 1000);
-        println!("DONE WITH ONE")
     });
 }
