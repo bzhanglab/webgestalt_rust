@@ -3,10 +3,10 @@ use std::{
     time::Instant,
 };
 
-use rand::prelude::SliceRandom;
-use rand::{Rng, SeedableRng};
-use rand::rngs::SmallRng;
 use crate::readers::utils::Item;
+use rand::prelude::SliceRandom;
+use rand::rngs::SmallRng;
+use rand::{Rng, SeedableRng};
 use rayon::prelude::*;
 use rustc_hash::FxHashSet;
 
@@ -31,7 +31,6 @@ fn gene_set_p(genes: &Vec<String>, ranks: &[f64], item: &Item, p: f64, permutati
     let gene_set = FxHashSet::from_iter(item.parts.iter());
     let mut n_r: f64 = 0.0;
     let mut n_miss: f64 = 0.0;
-
     let inverse_size_dif: f64 = 1.0 / ((genes.len() - item.parts.len()) as f64); // Inverse now,
     let gene_size = genes.len();
     for j in 0..gene_size {
@@ -41,44 +40,47 @@ fn gene_set_p(genes: &Vec<String>, ranks: &[f64], item: &Item, p: f64, permutati
             n_miss += 1.0;
         }
     }
-    let inverse_nr = 1.0 / n_r;
-    let original_order = 0..(gene_size - 1);
-    let has_gene: Vec<bool> = genes.par_iter().map(|x| gene_set.contains(x)).collect();
-    let new_ranks: Vec<f64> = ranks
-        .par_iter()
-        .map(|x| x.powf(p))
-        .collect();
-    let real_es = enrichment_score(
-        &has_gene,
-        &new_ranks,
-        original_order.collect(),
-        inverse_size_dif,
-        inverse_nr,
-    );
-    let perm_es = Arc::new(Mutex::new(Vec::new()));
-    (0..permutations).into_par_iter().for_each(|_i| {
-        let mut smallrng = rand::rngs::SmallRng::from_entropy();
-        let new_order = (0..(gene_size)).collect::<Vec<usize>>().choose_multiple(&mut smallrng, gene_size).map(|x| x.clone()).collect();
-        // println!("{:?}", new_order);
-        perm_es.lock().unwrap().push(enrichment_score(
+    if n_r == 0.0 {
+        0.0
+    } else {
+        let inverse_nr = 1.0 / n_r;
+        let original_order = 0..(gene_size - 1);
+        let has_gene: Vec<bool> = genes.par_iter().map(|x| gene_set.contains(x)).collect();
+        let new_ranks: Vec<f64> = ranks.par_iter().map(|x| x.powf(p)).collect();
+        let real_es = enrichment_score(
             &has_gene,
             &new_ranks,
-            new_order,
+            original_order.collect(),
             inverse_size_dif,
             inverse_nr,
-        ));
-    });
-    println!("{:?}, {:?}", real_es, perm_es.lock().unwrap()[0]);
-    let x = perm_es
-        .lock()
-        .unwrap()
-        .par_iter()
-        .filter(|x| x.abs() > real_es.abs())
-        .collect::<Vec<&f64>>()
-        .len() as f64
-        / (permutations as f64);
-    println!("{:?}", x);
-    x
+        );
+        let perm_es = Arc::new(Mutex::new(Vec::new()));
+        (0..permutations).into_par_iter().for_each(|_i| {
+            let mut smallrng = rand::rngs::SmallRng::from_entropy();
+            let new_order = (0..(gene_size))
+                .collect::<Vec<usize>>()
+                .choose_multiple(&mut smallrng, gene_size)
+                .map(|x| x.clone())
+                .collect();
+            // println!("{:?}", new_order);
+            perm_es.lock().unwrap().push(enrichment_score(
+                &has_gene,
+                &new_ranks,
+                new_order,
+                inverse_size_dif,
+                inverse_nr,
+            ));
+        });
+        let x = perm_es
+            .lock()
+            .unwrap()
+            .par_iter()
+            .filter(|x| x.abs() > real_es.abs())
+            .collect::<Vec<&f64>>()
+            .len() as f64
+            / (permutations as f64);
+        x
+    }
 }
 
 fn enrichment_score(
