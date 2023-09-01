@@ -14,4 +14,3 @@ webgestalt_lib = {path = "webgestalt_lib"}
 
 [profile.release]
 opt-level = 3
-debug = 1

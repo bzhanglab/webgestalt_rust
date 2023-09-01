@@ -1,18 +1,27 @@
-use std::{
-    sync::{Arc, Mutex},
-    time::Instant,
-};
-
 use crate::readers::utils::Item;
+
 use rand::prelude::SliceRandom;
 use rand::rngs::SmallRng;
 use rand::{Rng, SeedableRng};
 use rayon::prelude::*;
 use rustc_hash::FxHashSet;
+use statrs::distribution::{ContinuousCDF, Empirical};
+use std::sync::atomic::AtomicI32;
+use std::{
+    sync::{Arc, Mutex},
+    time::Instant,
+};
 
 pub struct RankListItem {
     pub phenotype: String,
     pub rank: f64,
+}
+
+pub struct GSEAResult<T, A, B> {
+    // TODO: Look at adding enrichment and normalized enrichment score
+    pub phenotype: T,
+    pub p: A,
+    pub fdr: B,
 }
 
 impl RankListItem {
@@ -27,7 +36,13 @@ impl RankListItem {
     }
 }
 
-fn gene_set_p(genes: &Vec<String>, ranks: &[f64], item: &Item, p: f64, permutations: usize) -> f64 {
+fn gene_set_p(
+    genes: &Vec<String>,
+    ranks: &[f64],
+    item: &Item,
+    p: f64,
+    permutations: usize,
+) -> GSEAResult<String, f64, f64> {
     let gene_set = FxHashSet::from_iter(item.parts.iter());
     let mut n_r: f64 = 0.0;
     let mut n_miss: f64 = 0.0;
@@ -41,7 +56,11 @@ fn gene_set_p(genes: &Vec<String>, ranks: &[f64], item: &Item, p: f64, permutati
         }
     }
     if n_r == 0.0 {
-        0.0
+        GSEAResult {
+            phenotype: item.id.clone(),
+            p: 1.0,
+            fdr: 1.0,
+        }
     } else {
         let inverse_nr = 1.0 / n_r;
         let original_order = 0..(gene_size - 1);
@@ -62,7 +81,6 @@ fn gene_set_p(genes: &Vec<String>, ranks: &[f64], item: &Item, p: f64, permutati
                 .choose_multiple(&mut smallrng, gene_size)
                 .map(|x| x.clone())
                 .collect();
-            // println!("{:?}", new_order);
             perm_es.lock().unwrap().push(enrichment_score(
                 &has_gene,
                 &new_ranks,
@@ -71,14 +89,44 @@ fn gene_set_p(genes: &Vec<String>, ranks: &[f64], item: &Item, p: f64, permutati
                 inverse_nr,
             ));
         });
-        let x = perm_es
-            .lock()
-            .unwrap()
-            .par_iter()
-            .filter(|x| x.abs() > real_es.abs())
-            .collect::<Vec<&f64>>()
-            .len() as f64
-            / (permutations as f64);
+        let nes_iter = perm_es.lock().unwrap();
+        let len: f64 = nes_iter.len() as f64;
+        let avg: f64 = nes_iter.iter().sum::<f64>() / len;
+        let nes_es: Vec<f64> = nes_iter.iter().map(|x| x / avg).collect();
+        let norm_es = real_es / avg;
+        let x = if real_es < 0_f64 {
+            let p: f64 = 1.0
+                - Empirical::from_vec(
+                    nes_iter
+                        .par_iter()
+                        .filter(|x| x < &&0_f64)
+                        .map(|x| x.clone())
+                        .collect::<Vec<f64>>(),
+                )
+                .cdf(real_es);
+            let fdr = 0.0;
+            GSEAResult {
+                phenotype: item.id.clone(),
+                p,
+                fdr,
+            }
+        } else {
+            let p: f64 = 1.0
+                - Empirical::from_vec(
+                    nes_iter
+                        .par_iter()
+                        .filter(|x| x >= &&0_f64)
+                        .map(|x| x.clone())
+                        .collect::<Vec<f64>>(),
+                )
+                .cdf(real_es);
+            let fdr = 0.0;
+            GSEAResult {
+                phenotype: item.id.clone(),
+                p,
+                fdr,
+            }
+        };
         x
     }
 }
@@ -111,8 +159,14 @@ pub fn get_gsea(mut gene_list: Vec<RankListItem>, gmt: Vec<Item>) {
     println!("Starting GSEA Calculation.");
     gene_list.sort_by(|a, b| b.rank.partial_cmp(&a.rank).unwrap());
     let (phenotypes, ranks) = RankListItem::to_vecs(gene_list);
-    // let mut res: Vec<GSEAResult<f64, Vec<String>>> = Vec::new();
+    // let mut res: Vec<GSEAResult<String, f64, f64>> = Vec::new();
+    let sigs = AtomicI32::new(0);
     gmt.par_iter().for_each(|x| {
-        gene_set_p(&phenotypes, &ranks, x, 1.0, 1000);
+        let y = gene_set_p(&phenotypes, &ranks, x, 1.0, 1000);
+        if y.p < 0.05 {
+            sigs.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+            println!("{:?}: {:?}, {:?}", x.id, y.p, y.fdr);
+        }
     });
+    println!("Found {:?} significant pathways.", sigs)
 }
