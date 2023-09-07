@@ -1,16 +1,12 @@
 use crate::readers::utils::Item;
 
 use rand::prelude::SliceRandom;
-use rand::rngs::SmallRng;
-use rand::{Rng, SeedableRng};
+use rand::SeedableRng;
 use rayon::prelude::*;
 use rustc_hash::FxHashSet;
 use statrs::distribution::{ContinuousCDF, Empirical};
 use std::sync::atomic::AtomicI32;
-use std::{
-    sync::{Arc, Mutex},
-    time::Instant,
-};
+use std::sync::{Arc, Mutex};
 
 pub struct RankListItem {
     pub phenotype: String,
@@ -46,14 +42,11 @@ fn gene_set_p(
     let permutations = permutations_vec.len();
     let gene_set = FxHashSet::from_iter(item.parts.iter());
     let mut n_r: f64 = 0.0;
-    let mut n_miss: f64 = 0.0;
     let inverse_size_dif: f64 = 1.0 / ((genes.len() - item.parts.len()) as f64); // Inverse now,
     let gene_size = genes.len();
     for j in 0..gene_size {
         if gene_set.contains(&genes[j]) {
             n_r += ranks[j].powf(p);
-        } else {
-            n_miss += 1.0;
         }
     }
     if n_r == 0.0 {
@@ -96,13 +89,14 @@ fn gene_set_p(
                     nes_iter
                         .par_iter()
                         .filter(|&x| x < &0_f64)
-                        .map(|x| x.clone())
+                        .map(|x| *x)
                         .collect::<Vec<f64>>(),
                 )
                 .cdf(real_es);
             let new_nes_es: Vec<&f64> = nes_es.par_iter().filter(|&x| x >= &0_f64).collect();
             let nes_len = new_nes_es.len();
-            let fdr: f64 = (new_nes_es.par_iter().filter(|&x| x > &&norm_es).count() / nes_len) as f64;
+            let fdr: f64 =
+                (new_nes_es.par_iter().filter(|&x| x > &&norm_es).count() / nes_len) as f64;
             GSEAResult {
                 phenotype: item.id.clone(),
                 p,
@@ -114,13 +108,14 @@ fn gene_set_p(
                     nes_iter
                         .par_iter()
                         .filter(|x| x >= &&0_f64)
-                        .map(|x| x.clone())
+                        .map(|x| *x)
                         .collect::<Vec<f64>>(),
                 )
                 .cdf(real_es);
             let new_nes_es: Vec<&f64> = nes_es.par_iter().filter(|&x| x >= &0_f64).collect();
             let nes_len = new_nes_es.len();
-            let fdr: f64 = (new_nes_es.par_iter().filter(|&x| x > &&norm_es).count() / nes_len) as f64;
+            let fdr: f64 =
+                (new_nes_es.par_iter().filter(|&x| x > &&norm_es).count() / nes_len) as f64;
             GSEAResult {
                 phenotype: item.id.clone(),
                 p,
@@ -167,8 +162,7 @@ pub fn gsea(mut gene_list: Vec<RankListItem>, gmt: Vec<Item>) {
         let new_order = (0..(phenotypes.len()))
             .collect::<Vec<usize>>()
             .choose_multiple(&mut smallrng, phenotypes.len())
-            .map(|x| x.clone())
-            .collect();
+            .copied().collect();
         permutations.push(new_order);
     });
     gmt.par_iter().for_each(|x| {

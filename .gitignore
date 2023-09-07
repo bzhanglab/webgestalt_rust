@@ -11,3 +11,4 @@ target/
 flamegraph.svg
 .DS_Store
 test.gmt.wga
+format_benchmarks.tsv
