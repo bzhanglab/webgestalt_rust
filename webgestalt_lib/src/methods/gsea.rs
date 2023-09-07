@@ -41,8 +41,9 @@ fn gene_set_p(
     ranks: &[f64],
     item: &Item,
     p: f64,
-    permutations: usize,
+    permutations_vec: &Vec<Vec<usize>>,
 ) -> GSEAResult<String, f64, f64> {
+    let permutations = permutations_vec.len();
     let gene_set = FxHashSet::from_iter(item.parts.iter());
     let mut n_r: f64 = 0.0;
     let mut n_miss: f64 = 0.0;
@@ -74,13 +75,8 @@ fn gene_set_p(
             inverse_nr,
         );
         let perm_es = Arc::new(Mutex::new(Vec::new()));
-        (0..permutations).into_par_iter().for_each(|_i| {
-            let mut smallrng = rand::rngs::SmallRng::from_entropy();
-            let new_order = (0..(gene_size))
-                .collect::<Vec<usize>>()
-                .choose_multiple(&mut smallrng, gene_size)
-                .map(|x| x.clone())
-                .collect();
+        (0..permutations).into_par_iter().for_each(|i| {
+            let new_order = permutations_vec[i].clone();
             perm_es.lock().unwrap().push(enrichment_score(
                 &has_gene,
                 &new_ranks,
@@ -99,12 +95,14 @@ fn gene_set_p(
                 - Empirical::from_vec(
                     nes_iter
                         .par_iter()
-                        .filter(|x| x < &&0_f64)
+                        .filter(|&x| x < &0_f64)
                         .map(|x| x.clone())
                         .collect::<Vec<f64>>(),
                 )
                 .cdf(real_es);
-            let fdr = 0.0;
+            let new_nes_es: Vec<&f64> = nes_es.par_iter().filter(|&x| x >= &0_f64).collect();
+            let nes_len = new_nes_es.len();
+            let fdr: f64 = (new_nes_es.par_iter().filter(|&x| x > &&norm_es).count() / nes_len) as f64;
             GSEAResult {
                 phenotype: item.id.clone(),
                 p,
@@ -120,7 +118,9 @@ fn gene_set_p(
                         .collect::<Vec<f64>>(),
                 )
                 .cdf(real_es);
-            let fdr = 0.0;
+            let new_nes_es: Vec<&f64> = nes_es.par_iter().filter(|&x| x >= &0_f64).collect();
+            let nes_len = new_nes_es.len();
+            let fdr: f64 = (new_nes_es.par_iter().filter(|&x| x > &&norm_es).count() / nes_len) as f64;
             GSEAResult {
                 phenotype: item.id.clone(),
                 p,
@@ -155,14 +155,24 @@ fn enrichment_score(
     max_score
 }
 
-pub fn get_gsea(mut gene_list: Vec<RankListItem>, gmt: Vec<Item>) {
+pub fn gsea(mut gene_list: Vec<RankListItem>, gmt: Vec<Item>) {
     println!("Starting GSEA Calculation.");
     gene_list.sort_by(|a, b| b.rank.partial_cmp(&a.rank).unwrap());
     let (phenotypes, ranks) = RankListItem::to_vecs(gene_list);
     // let mut res: Vec<GSEAResult<String, f64, f64>> = Vec::new();
     let sigs = AtomicI32::new(0);
+    let mut smallrng = rand::rngs::SmallRng::from_entropy();
+    let mut permutations: Vec<Vec<usize>> = Vec::new();
+    (0..1000).for_each(|_i| {
+        let new_order = (0..(phenotypes.len()))
+            .collect::<Vec<usize>>()
+            .choose_multiple(&mut smallrng, phenotypes.len())
+            .map(|x| x.clone())
+            .collect();
+        permutations.push(new_order);
+    });
     gmt.par_iter().for_each(|x| {
-        let y = gene_set_p(&phenotypes, &ranks, x, 1.0, 1000);
+        let y = gene_set_p(&phenotypes, &ranks, x, 1.0, &permutations);
         if y.p < 0.05 {
             sigs.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
             println!("{:?}: {:?}, {:?}", x.id, y.p, y.fdr);

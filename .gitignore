@@ -10,3 +10,4 @@ target/
 *.pdb
 flamegraph.svg
 .DS_Store
+test.gmt.wga
