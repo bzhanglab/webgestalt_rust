@@ -15,7 +15,6 @@ struct Args {
     // /// Gene List Path
     // #[arg(short, long)]
     // gene_list: String,
-
     // /// Test argumnet
     // #[arg(short, long)]
     // test: u32,
@@ -25,7 +24,7 @@ struct Args {
 
 #[derive(Subcommand)]
 enum Commands {
-    /// Benchmark different file formats for gmt. TODO: Remove later
+    /// Benchmark different file formats for gmt.  TODO: Remove later
     Benchmark,
 }
 
@@ -55,7 +54,6 @@ fn benchmark() {
         let duration = start.elapsed();
         bin_durations.push(duration.as_secs_f64())
     }
-
     let mut gmt_durations: Vec<f64> = Vec::new();
     for _i in 0..1000 {
         let start = Instant::now();

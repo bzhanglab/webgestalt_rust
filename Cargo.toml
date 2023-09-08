@@ -1,7 +1,7 @@
 [workspace]
 
 [package]
-name = "webgestalt_rust"
+name = "webgestalt"
 version = "0.1.0"
 authors = ["John Elizarraras"]
 edition = "2021"

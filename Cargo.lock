@@ -651,6 +651,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9c8d87e72b64a3b4db28d11ce29237c246188f4f51057d65a7eab63b7987e423"
 
 [[package]]
+name = "webgestalt"
+version = "0.1.0"
+dependencies = [
+ "bincode",
+ "clap",
+ "serde",
+ "webgestalt_lib",
+]
+
+[[package]]
 name = "webgestalt_lib"
 version = "0.1.0"
 dependencies = [
@@ -660,16 +670,6 @@ dependencies = [
  "rustc-hash",
  "serde",
  "statrs",
-]
-
-[[package]]
-name = "webgestalt_rust"
-version = "0.1.0"
-dependencies = [
- "bincode",
- "clap",
- "serde",
- "webgestalt_lib",
 ]
 
 [[package]]

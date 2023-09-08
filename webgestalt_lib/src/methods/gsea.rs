@@ -162,7 +162,8 @@ pub fn gsea(mut gene_list: Vec<RankListItem>, gmt: Vec<Item>) {
         let new_order = (0..(phenotypes.len()))
             .collect::<Vec<usize>>()
             .choose_multiple(&mut smallrng, phenotypes.len())
-            .copied().collect();
+            .copied()
+            .collect();
         permutations.push(new_order);
     });
     gmt.par_iter().for_each(|x| {
