@@ -41,7 +41,7 @@ pub fn read_rank_file(path: String) -> Result<Vec<RankListItem>, Box<std::io::Er
             .collect::<Vec<String>>();
         let phenotype = result.get(0).unwrap().to_owned();
         let rank = result.get(1).unwrap().to_owned().parse::<f64>().unwrap();
-        let item = RankListItem { phenotype, rank };
+        let item = RankListItem { analyte: phenotype, rank };
         items.push(item);
     }
     Ok(items)
