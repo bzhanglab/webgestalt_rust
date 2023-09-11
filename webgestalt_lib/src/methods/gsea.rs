@@ -4,7 +4,6 @@ use rand::prelude::SliceRandom;
 use rand::SeedableRng;
 use rayon::prelude::*;
 use rustc_hash::FxHashSet;
-use std::sync::atomic::AtomicI32;
 use std::sync::{Arc, Mutex};
 
 pub struct RankListItem {
@@ -18,6 +17,7 @@ pub struct GSEAResult {
     pub p: f64,
     pub es: f64,
     pub nes: f64,
+    overlap: i32,
 }
 
 impl GSEAResult {
@@ -52,6 +52,18 @@ impl RankListItem {
     }
 }
 
+fn median(array: &Vec<f64>) -> f64 {
+    if array.is_empty() {
+        0.0
+    } else if (array.len() % 2) == 0 {
+        let ind_left = array.len() / 2 - 1;
+        let ind_right = array.len() / 2;
+        (array[ind_left] + array[ind_right]) as f64 / 2.0
+    } else {
+        array[array.len() / 2] as f64
+    }
+}
+
 fn gene_set_p(
     genes: &Vec<String>,
     ranks: &[f64],
@@ -62,32 +74,35 @@ fn gene_set_p(
     let permutations = permutations_vec.len();
     let gene_set = FxHashSet::from_iter(item.parts.iter());
     let mut n_r: f64 = 0.0;
-    let inverse_size_dif: f64 = 1.0 / ((genes.len() - item.parts.len()) as f64); // Inverse now,
+    let inverse_size_dif: f64 = 1.0 / ((genes.len() - gene_set.len()) as f64); // Inverse now,
     let gene_size = genes.len();
+    let mut overlap: i32 = 0;
     for j in 0..gene_size {
         if gene_set.contains(&genes[j]) {
-            n_r += ranks[j].powf(p).abs();
+            n_r += ranks[j].abs().powf(p);
+            overlap += 1;
         }
     }
-    if n_r == 0.0 {
+    if overlap < 20 || overlap > 500 {
         // No GSEA needed.
         (
             GSEAResult {
                 phenotype: item.id.clone(),
                 p: 1.0,
-                nes: 1.0,
-                es: 1.0,
+                nes: 0.0,
+                es: 0.0,
+                overlap,
             },
             Vec::new(),
         )
     } else {
         let inverse_nr = 1.0 / n_r;
         let original_order = 0..gene_size;
-        let has_gene: Vec<bool> = genes.par_iter().map(|x| gene_set.contains(x)).collect();
+        let has_gene: Vec<bool> = genes.iter().map(|x| gene_set.contains(x)).collect();
         let new_ranks: Vec<f64> = if p != 1.0 {
-            ranks.par_iter().map(|x| x.powf(p)).collect()
+            ranks.par_iter().map(|x| x.abs().powf(p)).collect()
         } else {
-            ranks.to_vec()
+            ranks.par_iter().map(|x| x.abs()).collect()
         };
         let real_es = enrichment_score(
             &has_gene,
@@ -98,7 +113,6 @@ fn gene_set_p(
         );
         let perm_es = Arc::new(Mutex::new(Vec::new()));
         (0..permutations).into_par_iter().for_each(|i| {
-            // let new_order = permutations_vec[i].clone();
             perm_es.lock().unwrap().push(enrichment_score(
                 &has_gene,
                 &new_ranks,
@@ -107,25 +121,57 @@ fn gene_set_p(
                 inverse_nr,
             ));
         });
-        let nes_iter = perm_es.lock().unwrap();
-        let len: f64 = nes_iter.len() as f64;
-        let avg: f64 = nes_iter.iter().sum::<f64>() / len;
-        let nes_es: Vec<f64> = nes_iter.iter().map(|x| x / avg.abs()).collect();
-        let norm_es: f64 = real_es / avg.abs();
-        let side: Vec<&f64> = if real_es >= 0_f64 {
-            nes_iter.iter().filter(|x| *x >= &0_f64).collect()
+        let es_iter = perm_es.lock().unwrap();
+        // es_iter.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        let up: Vec<f64> = es_iter
+            .par_iter()
+            .filter(|&x| *x >= 0_f64)
+            .copied()
+            .collect();
+        let down: Vec<f64> = es_iter
+            .par_iter()
+            .filter(|&x| *x < 0_f64)
+            .copied()
+            .collect();
+        if up.is_empty() || item.id == "hsa04723" || inverse_nr < 0.01 {
+            println!("{:?}, {:?}, {:?}", item.id, inverse_nr, inverse_size_dif);
+        }
+        let up_len = up.len();
+        let down_len = down.len();
+        let up_avg: f64 = up.iter().sum::<f64>() / (up_len as f64 + 0.000001) + 0.000001;
+        let down_avg: f64 = down.iter().sum::<f64>() / (down_len as f64 + 0.000001) - 0.000001;
+        // up.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        // down.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        // let up_avg = median(&up);
+        // let down_avg = median(&down);
+        let mut nes_es: Vec<f64> = up.par_iter().map(|x| x / up_avg).collect();
+        nes_es.extend(down.par_iter().map(|x| -x / down_avg).collect::<Vec<f64>>());
+        let norm_es: f64 = if real_es >= 0_f64 {
+            real_es / up_avg
         } else {
-            nes_iter.iter().filter(|x| *x <= &0_f64).collect()
+            -real_es / down_avg
+        };
+        let side: Vec<&f64> = if real_es >= 0_f64 {
+            es_iter.iter().filter(|x| *x >= &0_f64).collect()
+        } else {
+            es_iter.iter().filter(|x| *x < &0_f64).collect()
         };
         let tot = side.len();
-        let p: f64 =
-            side.into_iter().filter(|x| x.abs() > real_es.abs()).count() as f64 / tot as f64;
+        let p: f64 = if tot != 0 {
+            side.into_iter()
+                .filter(|x| x.abs() >= real_es.abs())
+                .count() as f64
+                / tot as f64
+        } else {
+            0.0
+        };
         (
             GSEAResult {
                 phenotype: item.id.clone(),
                 p,
                 nes: norm_es,
                 es: real_es,
+                overlap,
             },
             nes_es,
         )
@@ -144,11 +190,11 @@ fn enrichment_score(
     let mut sum_miss: f64 = 0.0;
     for i in 0..genes.len() {
         if genes[order[i]] {
-            sum_hits += ranks[i].abs();
+            sum_hits += ranks[i];
         } else {
             sum_miss += 1.0;
         }
-        let es = sum_hits * inverse_nr - sum_miss * inverse_size_dif;
+        let es = (sum_hits * inverse_nr) - (sum_miss * inverse_size_dif);
         if es.abs() > max_score.abs() {
             max_score = es;
         }
@@ -163,55 +209,78 @@ pub fn gsea(mut gene_list: Vec<RankListItem>, gmt: Vec<Item>) {
     let mut smallrng = rand::rngs::SmallRng::from_entropy();
     let mut permutations: Vec<Vec<usize>> = Vec::new();
     (0..1000).for_each(|_i| {
-        let new_order = (0..(phenotypes.len()))
-            .collect::<Vec<usize>>()
-            .choose_multiple(&mut smallrng, phenotypes.len())
-            .copied()
-            .collect();
+        let mut new_order = (0..(phenotypes.len())).collect::<Vec<usize>>();
+        new_order.shuffle(&mut smallrng);
         permutations.push(new_order);
     });
     let all_nes = Arc::new(Mutex::new(Vec::new()));
     let set_nes = Arc::new(Mutex::new(Vec::new()));
     let all_res = Arc::new(Mutex::new(Vec::new()));
-    gmt.par_iter().for_each(|x| {
-        let (y, nes_iter) = gene_set_p(&phenotypes, &ranks, x, 1.0, &permutations);
-        all_nes.lock().unwrap().extend(nes_iter);
-        set_nes.lock().unwrap().push(y.nes);
-        all_res.lock().unwrap().push(y);
+    gmt.par_iter().for_each(|gene_set| {
+        let (y, nes_iter) = gene_set_p(&phenotypes, &ranks, gene_set, 1.0, &permutations);
+        if y.overlap >= 20 && y.overlap <= 500 {
+            all_nes.lock().unwrap().extend(nes_iter);
+            set_nes.lock().unwrap().push(y.nes);
+            all_res.lock().unwrap().push(y);
+        }
     });
-    let all_nes_l = all_nes.lock().unwrap();
-    let set_nes_l = set_nes.lock().unwrap();
-    let all_res_l = all_res.lock().unwrap();
+    let null_distribution = all_nes.lock().unwrap();
+    let observed_distribution = set_nes.lock().unwrap();
+    let partial_results: std::sync::MutexGuard<'_, Vec<GSEAResult>> = all_res.lock().unwrap();
     let mut final_gsea: Vec<FullGSEAResult> = Vec::new();
-    for i in 0..set_nes_l.len() {
-        let top_side: Vec<&f64> = if set_nes_l[i] >= 0_f64 {
-            all_nes_l.par_iter().filter(|&x| x >= &0_f64).collect()
+    for i in 0..partial_results.len() {
+        let nes = partial_results[i].nes;
+        let top_side: Vec<&f64> = if nes > 0_f64 {
+            null_distribution
+                .par_iter()
+                .filter(|&x| x > &0_f64)
+                .collect()
         } else {
-            all_nes_l.par_iter().filter(|&x| x <= &0_f64).collect()
+            null_distribution
+                .par_iter()
+                .filter(|&x| x < &0_f64)
+                .collect()
         };
-        let top_len = top_side.len();
-        let top_val = top_side
-            .par_iter()
-            .filter(|&x| x.abs() > set_nes_l[i].abs())
-            .count() as f64
-            / top_len as f64;
-        let bottom_side: Vec<&f64> = if set_nes_l[i] >= 0_f64 {
-            set_nes_l.par_iter().filter(|&x| x >= &0_f64).collect()
+        let top_len = if top_side.is_empty() {
+            0.000001
         } else {
-            set_nes_l.par_iter().filter(|&x| x <= &0_f64).collect()
+            top_side.len() as f64
         };
-        let bottom_len = bottom_side.len();
+        let nes_abs = nes.abs();
+        let top_val = top_side.par_iter().filter(|&x| x.abs() >= nes_abs).count() as f64;
+        let bottom_side: Vec<&f64> = if nes >= 0_f64 {
+            observed_distribution
+                .par_iter()
+                .filter(|&x| x >= &0_f64)
+                .collect()
+        } else {
+            observed_distribution
+                .par_iter()
+                .filter(|&x| x <= &0_f64)
+                .collect()
+        };
+        let bottom_len = if bottom_side.is_empty() {
+            0.000001
+        } else {
+            bottom_side.len() as f64
+        };
         let bottom_val = bottom_side
             .par_iter()
-            .filter(|&x| x.abs() > set_nes_l[i].abs())
-            .count() as f64
-            / bottom_len as f64;
-        let fdr: f64 = top_val / bottom_val;
-        final_gsea.push(all_res_l[i].add_fdr(fdr));
+            .filter(|&x| x.abs() >= nes_abs)
+            .count() as f64;
+        let fdr: f64 = (top_val / top_len) / (bottom_val / bottom_len);
+        if fdr < 0.7 {
+            println!(
+                "{:?}/{:?}",
+                top_val / top_len as f64,
+                bottom_val / bottom_len as f64
+            );
+        }
+        final_gsea.push(partial_results[i].add_fdr(fdr));
     }
     let mut sigs: i32 = 0;
     for res in final_gsea {
-        if res.p < 0.05 {
+        if res.p <= 0.05 {
             println!(
                 "{:?}: p: {:?}, fdr: {:?}, es: {:?}, nes: {:?}",
                 res.phenotype, res.p, res.fdr, res.es, res.nes
@@ -219,5 +288,5 @@ pub fn gsea(mut gene_list: Vec<RankListItem>, gmt: Vec<Item>) {
             sigs += 1;
         }
     }
-    println!("Found {:?} significant pathways.", sigs)
+    println!("Found {:?} significant pathways.", sigs);
 }

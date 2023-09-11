@@ -2,6 +2,9 @@ pub mod utils;
 use crate::methods::gsea::RankListItem;
 use std::fs::File;
 use utils::Item;
+
+
+
 pub fn read_gmt_file(path: String) -> Result<Vec<Item>, Box<std::io::Error>> {
     let file = File::open(path)?;
     let mut rdr = csv::ReaderBuilder::new()
@@ -19,8 +22,11 @@ pub fn read_gmt_file(path: String) -> Result<Vec<Item>, Box<std::io::Error>> {
         let id = result.get(0).unwrap().to_owned();
         let url = result.get(1).unwrap().to_owned();
         let parts = result[2..].to_vec();
+        let p_len = parts.len();
         let item = Item { id, url, parts };
-        items.push(item);
+        if p_len >= 15 { // TODO: ADD PARAMETER FOR CUTOFF
+            items.push(item);
+        }
     }
     Ok(items)
 }
