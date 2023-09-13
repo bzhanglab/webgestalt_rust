@@ -14,31 +14,34 @@ pub struct RankListItem {
 
 pub struct GSEAResult {
     // TODO: Look at adding enrichment and normalized enrichment score
-    pub phenotype: String,
+    pub set: String,
     pub p: f64,
     pub es: f64,
     pub nes: f64,
     overlap: i32,
+    leading_edge: i32,
 }
 
 impl GSEAResult {
     pub fn add_fdr(&self, fdr: f64) -> FullGSEAResult {
         FullGSEAResult {
-            phenotype: self.phenotype.clone(),
+            set: self.set.clone(),
             p: self.p,
             fdr,
             es: self.es,
             nes: self.nes,
+            leading_edge: self.leading_edge,
         }
     }
 }
 
 pub struct FullGSEAResult {
-    pub phenotype: String,
+    pub set: String,
     pub p: f64,
     pub fdr: f64,
     pub es: f64,
     pub nes: f64,
+    pub leading_edge: i32,
 }
 
 impl RankListItem {
@@ -53,50 +56,53 @@ impl RankListItem {
     }
 }
 
-fn gene_set_p(
-    genes: &Vec<String>,
+fn analyte_set_p(
+    analytes: &Vec<String>,
     ranks: &[f64],
     item: &Item,
     p: f64,
     permutations_vec: &Vec<Vec<usize>>,
 ) -> (GSEAResult, Vec<f64>) {
     let permutations = permutations_vec.len();
-    let gene_set = FxHashSet::from_iter(item.parts.iter());
+    let analyte_set = FxHashSet::from_iter(item.parts.iter());
     let mut n_r: f64 = 0.0;
-    let inverse_size_dif: f64 = 1.0 / ((genes.len() - gene_set.len()) as f64); // Inverse now,
-    let gene_size = genes.len();
+    let inverse_size_dif: f64 = 1.0 / ((analytes.len() - analyte_set.len()) as f64); // Inverse now,
+    let analyte_count = analytes.len();
     let mut overlap: i32 = 0;
-    for j in 0..gene_size {
-        if gene_set.contains(&genes[j]) {
+    for j in 0..analyte_count {
+        if analyte_set.contains(&analytes[j]) {
             n_r += ranks[j].abs().powf(p);
             overlap += 1;
         }
     }
+    // if !(20..=500).contains(&overlap) {
     if overlap < 20 || overlap > 500 {
         // TODO: Make numbers parameters (maybe a struct)
         (
-            GSEAResult { // No GSEA needed
-                phenotype: item.id.clone(),
+            GSEAResult {
+                // No GSEA needed
+                set: item.id.clone(),
                 p: 1.0,
                 nes: 0.0,
                 es: 0.0,
                 overlap,
+                leading_edge: 0,
             },
             Vec::new(),
         )
     } else {
         let inverse_nr = 1.0 / n_r;
-        let original_order = 0..gene_size;
-        let has_gene: Vec<bool> = genes.iter().map(|x| gene_set.contains(x)).collect();
+        let original_order = (0..analyte_count).collect::<Vec<usize>>();
+        let has_analyte: Vec<bool> = analytes.iter().map(|x| analyte_set.contains(x)).collect();
         let new_ranks: Vec<f64> = if p != 1.0 {
             ranks.par_iter().map(|x| x.abs().powf(p)).collect()
         } else {
             ranks.par_iter().map(|x| x.abs()).collect()
         };
-        let (real_es, _max_hits) = enrichment_score(
-            &has_gene,
+        let (real_es, max_hits) = enrichment_score(
+            &has_analyte,
             &new_ranks,
-            &original_order.collect(),
+            &original_order,
             inverse_size_dif,
             inverse_nr,
             false,
@@ -104,7 +110,7 @@ fn gene_set_p(
         let perm_es = Arc::new(Mutex::new(Vec::new()));
         (0..permutations).into_par_iter().for_each(|i| {
             let (p_es, _) = enrichment_score(
-                &has_gene,
+                &has_analyte,
                 &new_ranks,
                 &permutations_vec[i],
                 inverse_size_dif,
@@ -151,11 +157,12 @@ fn gene_set_p(
         };
         (
             GSEAResult {
-                phenotype: item.id.clone(),
+                set: item.id.clone(),
                 p,
                 nes: norm_es,
                 es: real_es,
                 overlap,
+                leading_edge: max_hits,
             },
             nes_es,
         )
@@ -163,9 +170,9 @@ fn gene_set_p(
 }
 
 fn enrichment_score(
-    genes: &Vec<bool>,
+    analytes: &Vec<bool>,
     ranks: &[f64],
-    order: &Vec<usize>,
+    order: &[usize],
     inverse_size_dif: f64,
     inverse_nr: f64,
     is_perm: bool,
@@ -177,8 +184,8 @@ fn enrichment_score(
     let mut sum_miss: f64 = 0.0;
     let inv_nr = if is_perm {
         let mut temp_n: f64 = 0.0;
-        for i in 0..genes.len() {
-            if genes[order[i]] {
+        for i in 0..analytes.len() {
+            if analytes[order[i]] {
                 temp_n += ranks[i];
             }
         }
@@ -186,8 +193,8 @@ fn enrichment_score(
     } else {
         inverse_nr
     };
-    for i in 0..genes.len() {
-        if genes[order[i]] {
+    for i in 0..analytes.len() {
+        if analytes[order[i]] {
             sum_hits += ranks[i];
             hits += 1;
         } else {
@@ -202,26 +209,26 @@ fn enrichment_score(
     (max_score, max_hits)
 }
 
-pub fn gsea(mut gene_list: Vec<RankListItem>, gmt: Vec<Item>) {
+pub fn gsea(mut analyte_list: Vec<RankListItem>, gmt: Vec<Item>) {
     println!("Starting GSEA Calculation.");
-    gene_list.sort_by(|a, b| b.rank.partial_cmp(&a.rank).unwrap());
-    let (phenotypes, ranks) = RankListItem::to_vecs(gene_list.clone());
+    analyte_list.sort_by(|a, b| b.rank.partial_cmp(&a.rank).unwrap());
+    let (analytes, ranks) = RankListItem::to_vecs(analyte_list.clone());
     let mut order_dict = FxHashMap::default();
-    for i in 0..phenotypes.len() {
-        order_dict.insert(&phenotypes[i], i);
+    for i in 0..analytes.len() {
+        order_dict.insert(&analytes[i], i);
     }
     let mut smallrng = rand::rngs::SmallRng::from_entropy();
     let mut permutations: Vec<Vec<usize>> = Vec::new();
     (0..1000).for_each(|_i| {
-        let mut new_order: Vec<usize> = (0..phenotypes.len()).collect();
+        let mut new_order: Vec<usize> = (0..analytes.len()).collect();
         new_order.shuffle(&mut smallrng);
         permutations.push(new_order);
     });
     let all_nes = Arc::new(Mutex::new(Vec::new()));
     let set_nes = Arc::new(Mutex::new(Vec::new()));
     let all_res = Arc::new(Mutex::new(Vec::new()));
-    gmt.par_iter().for_each(|gene_set| {
-        let (y, nes_iter) = gene_set_p(&phenotypes, &ranks, gene_set, 1.0, &permutations);
+    gmt.par_iter().for_each(|analyte_set| {
+        let (y, nes_iter) = analyte_set_p(&analytes, &ranks, analyte_set, 1.0, &permutations);
         if y.overlap >= 20 && y.overlap <= 500 {
             all_nes.lock().unwrap().extend(nes_iter);
             set_nes.lock().unwrap().push(y.nes);
@@ -280,7 +287,7 @@ pub fn gsea(mut gene_list: Vec<RankListItem>, gmt: Vec<Item>) {
         if res.p <= 0.05 {
             println!(
                 "{}: p: {:?}, fdr: {:?}, es: {:?}, nes: {:?}",
-                res.phenotype, res.p, res.fdr, res.es, res.nes
+                res.set, res.p, res.fdr, res.es, res.nes
             );
             sigs += 1;
         }

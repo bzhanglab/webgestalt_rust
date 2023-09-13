@@ -35,8 +35,10 @@ fn main() {
             benchmark();
         }
         None => {
-            let gene_list = webgestalt_lib::readers::read_rank_file("webgestalt_lib/data/test.rnk".to_owned());
-            let gmt = webgestalt_lib::readers::read_gmt_file("webgestalt_lib/data/ktest.gmt".to_owned());
+            let gene_list =
+                webgestalt_lib::readers::read_rank_file("webgestalt_lib/data/test.rnk".to_owned());
+            let gmt =
+                webgestalt_lib::readers::read_gmt_file("webgestalt_lib/data/ktest.gmt".to_owned());
             let start = Instant::now();
             webgestalt_lib::methods::gsea::gsea(gene_list.unwrap(), gmt.unwrap());
             let duration = start.elapsed();
@@ -57,10 +59,18 @@ fn benchmark() {
     let mut gmt_durations: Vec<f64> = Vec::new();
     for _i in 0..1000 {
         let start = Instant::now();
-        let _x = webgestalt_lib::readers::read_gmt_file("test.gmt".to_owned()).unwrap();
+        let _x = webgestalt_lib::readers::read_gmt_file("webgestalt_lib/data/ktest.gmt".to_owned())
+            .unwrap();
         let duration = start.elapsed();
         gmt_durations.push(duration.as_secs_f64())
     }
+    let gmt_avg: f64 = gmt_durations.iter().sum::<f64>() / gmt_durations.len() as f64;
+    let bin_avg: f64 = bin_durations.iter().sum::<f64>() / bin_durations.len() as f64;
+    let improvment: f64 = 100.0 * (gmt_avg - bin_avg) / gmt_avg;
+    println!(
+        " GMT time: {}\tGMT.WGA time: {}\n Improvment: {:.1}%",
+        gmt_avg, bin_avg, improvment
+    );
     let mut whole_file: Vec<String> = Vec::new();
     whole_file.push("type\ttime".to_string());
     for line in bin_durations {
