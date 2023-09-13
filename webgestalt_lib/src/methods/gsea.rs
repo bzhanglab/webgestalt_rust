@@ -3,9 +3,10 @@ use crate::readers::utils::Item;
 use rand::prelude::SliceRandom;
 use rand::SeedableRng;
 use rayon::prelude::*;
-use rustc_hash::FxHashSet;
+use rustc_hash::{FxHashMap, FxHashSet};
 use std::sync::{Arc, Mutex};
 
+#[derive(Clone)]
 pub struct RankListItem {
     pub analyte: String,
     pub rank: f64,
@@ -104,22 +105,25 @@ fn gene_set_p(
         } else {
             ranks.par_iter().map(|x| x.abs()).collect()
         };
-        let real_es = enrichment_score(
+        let (real_es, max_hits) = enrichment_score(
             &has_gene,
             &new_ranks,
             &original_order.collect(),
             inverse_size_dif,
             inverse_nr,
+            false,
         );
         let perm_es = Arc::new(Mutex::new(Vec::new()));
         (0..permutations).into_par_iter().for_each(|i| {
-            perm_es.lock().unwrap().push(enrichment_score(
+            let (p_es, _) = enrichment_score(
                 &has_gene,
                 &new_ranks,
                 &permutations_vec[i],
                 inverse_size_dif,
                 inverse_nr,
-            ));
+                true,
+            );
+            perm_es.lock().unwrap().push(p_es);
         });
         let es_iter = perm_es.lock().unwrap();
         // es_iter.sort_by(|a, b| a.partial_cmp(b).unwrap());
@@ -133,8 +137,16 @@ fn gene_set_p(
             .filter(|&x| *x < 0_f64)
             .copied()
             .collect();
-        if up.is_empty() || item.id == "hsa04723" || inverse_nr < 0.01 {
-            println!("{:?}, {:?}, {:?}", item.id, inverse_nr, inverse_size_dif);
+        if up.is_empty() || item.id == "hsa04723" {
+            println!(
+                "{:?}, {:?}, {:?}, {:?}, {:?}, {:?}",
+                item.id,
+                gene_set.len(),
+                overlap,
+                max_hits,
+                inverse_nr,
+                inverse_size_dif
+            );
         }
         let up_len = up.len();
         let down_len = down.len();
@@ -184,33 +196,74 @@ fn enrichment_score(
     order: &Vec<usize>,
     inverse_size_dif: f64,
     inverse_nr: f64,
-) -> f64 {
+    is_perm: bool,
+) -> (f64, i32) {
     let mut max_score: f64 = 0.0;
+    let mut hits: i32 = 0;
+    let mut max_hits: i32 = 0;
     let mut sum_hits: f64 = 0.0;
     let mut sum_miss: f64 = 0.0;
+    let inv_nr = if is_perm {
+        let mut temp_n: f64 = 0.0;
+        for i in 0..genes.len() {
+            if genes[order[i]] {
+                temp_n += ranks[i];
+            }
+        }
+        1.0 / temp_n
+    } else {
+        inverse_nr
+    };
     for i in 0..genes.len() {
         if genes[order[i]] {
             sum_hits += ranks[i];
+            hits += 1;
         } else {
             sum_miss += 1.0;
         }
-        let es = (sum_hits * inverse_nr) - (sum_miss * inverse_size_dif);
+        let es = (sum_hits * inv_nr) - (sum_miss * inverse_size_dif);
         if es.abs() > max_score.abs() {
             max_score = es;
+            max_hits = hits;
         }
     }
-    max_score
+    (max_score, max_hits)
 }
 
 pub fn gsea(mut gene_list: Vec<RankListItem>, gmt: Vec<Item>) {
     println!("Starting GSEA Calculation.");
     gene_list.sort_by(|a, b| b.rank.partial_cmp(&a.rank).unwrap());
-    let (phenotypes, ranks) = RankListItem::to_vecs(gene_list);
+    let (phenotypes, ranks) = RankListItem::to_vecs(gene_list.clone());
+    let mut order_dict = FxHashMap::default();
+    for i in 0..phenotypes.len() {
+        order_dict.insert(&phenotypes[i], i);
+    }
+    // let mut signs: Vec<bool> = ranks.iter().map(|x| x.is_sign_positive()).collect();
     let mut smallrng = rand::rngs::SmallRng::from_entropy();
     let mut permutations: Vec<Vec<usize>> = Vec::new();
     (0..1000).for_each(|_i| {
-        let mut new_order = (0..(phenotypes.len())).collect::<Vec<usize>>();
+        // signs.shuffle(&mut smallrng);
+        // let mut new_items: Vec<RankListItem> = (0..signs.len())
+        //     .collect::<Vec<usize>>()
+        //     .par_iter()
+        //     .map(|j| RankListItem {
+        //         analyte: gene_list[*j].analyte.clone(),
+        //         rank: if signs[*j] {
+        //             gene_list[*j].rank.abs()
+        //         } else {
+        //             -(gene_list[*j].rank.abs())
+        //         },
+        //     })
+        //     .collect();
+
+        // new_items.sort_by(|a, b| b.rank.partial_cmp(&a.rank).unwrap());
+        // let new_order = new_items
+        //     .par_iter()
+        //     .map(|x| order_dict[&x.analyte])
+        //     .collect();
+        let mut new_order: Vec<usize> = (0..phenotypes.len()).collect();
         new_order.shuffle(&mut smallrng);
+        // println!("{:?}", new_order);
         permutations.push(new_order);
     });
     let all_nes = Arc::new(Mutex::new(Vec::new()));
@@ -269,13 +322,13 @@ pub fn gsea(mut gene_list: Vec<RankListItem>, gmt: Vec<Item>) {
             .filter(|&x| x.abs() >= nes_abs)
             .count() as f64;
         let fdr: f64 = (top_val / top_len) / (bottom_val / bottom_len);
-        if fdr < 0.7 {
-            println!(
-                "{:?}/{:?}",
-                top_val / top_len as f64,
-                bottom_val / bottom_len as f64
-            );
-        }
+        // if fdr < 0.7 {
+        //     println!(
+        //         "{:?}/{:?}",
+        //         top_val / top_len as f64,
+        //         bottom_val / bottom_len as f64
+        //     );
+        // }
         final_gsea.push(partial_results[i].add_fdr(fdr));
     }
     let mut sigs: i32 = 0;
