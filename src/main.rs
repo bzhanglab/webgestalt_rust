@@ -35,8 +35,8 @@ fn main() {
             benchmark();
         }
         None => {
-            let gene_list = webgestalt_lib::readers::read_rank_file("test.rnk".to_owned());
-            let gmt = webgestalt_lib::readers::read_gmt_file("test.gmt".to_owned());
+            let gene_list = webgestalt_lib::readers::read_rank_file("webgestalt_lib/data/test.rnk".to_owned());
+            let gmt = webgestalt_lib::readers::read_gmt_file("webgestalt_lib/data/ktest.gmt".to_owned());
             let start = Instant::now();
             webgestalt_lib::methods::gsea::gsea(gene_list.unwrap(), gmt.unwrap());
             let duration = start.elapsed();

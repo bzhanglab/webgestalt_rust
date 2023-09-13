@@ -53,18 +53,6 @@ impl RankListItem {
     }
 }
 
-fn median(array: &Vec<f64>) -> f64 {
-    if array.is_empty() {
-        0.0
-    } else if (array.len() % 2) == 0 {
-        let ind_left = array.len() / 2 - 1;
-        let ind_right = array.len() / 2;
-        (array[ind_left] + array[ind_right]) as f64 / 2.0
-    } else {
-        array[array.len() / 2] as f64
-    }
-}
-
 fn gene_set_p(
     genes: &Vec<String>,
     ranks: &[f64],
@@ -85,9 +73,9 @@ fn gene_set_p(
         }
     }
     if overlap < 20 || overlap > 500 {
-        // No GSEA needed.
+        // TODO: Make numbers parameters (maybe a struct)
         (
-            GSEAResult {
+            GSEAResult { // No GSEA needed
                 phenotype: item.id.clone(),
                 p: 1.0,
                 nes: 0.0,
@@ -105,7 +93,7 @@ fn gene_set_p(
         } else {
             ranks.par_iter().map(|x| x.abs()).collect()
         };
-        let (real_es, max_hits) = enrichment_score(
+        let (real_es, _max_hits) = enrichment_score(
             &has_gene,
             &new_ranks,
             &original_order.collect(),
@@ -126,7 +114,6 @@ fn gene_set_p(
             perm_es.lock().unwrap().push(p_es);
         });
         let es_iter = perm_es.lock().unwrap();
-        // es_iter.sort_by(|a, b| a.partial_cmp(b).unwrap());
         let up: Vec<f64> = es_iter
             .par_iter()
             .filter(|&x| *x >= 0_f64)
@@ -137,25 +124,10 @@ fn gene_set_p(
             .filter(|&x| *x < 0_f64)
             .copied()
             .collect();
-        if up.is_empty() || item.id == "hsa04723" {
-            println!(
-                "{:?}, {:?}, {:?}, {:?}, {:?}, {:?}",
-                item.id,
-                gene_set.len(),
-                overlap,
-                max_hits,
-                inverse_nr,
-                inverse_size_dif
-            );
-        }
         let up_len = up.len();
         let down_len = down.len();
         let up_avg: f64 = up.iter().sum::<f64>() / (up_len as f64 + 0.000001) + 0.000001;
         let down_avg: f64 = down.iter().sum::<f64>() / (down_len as f64 + 0.000001) - 0.000001;
-        // up.sort_by(|a, b| a.partial_cmp(b).unwrap());
-        // down.sort_by(|a, b| a.partial_cmp(b).unwrap());
-        // let up_avg = median(&up);
-        // let down_avg = median(&down);
         let mut nes_es: Vec<f64> = up.par_iter().map(|x| x / up_avg).collect();
         nes_es.extend(down.par_iter().map(|x| -x / down_avg).collect::<Vec<f64>>());
         let norm_es: f64 = if real_es >= 0_f64 {
@@ -238,32 +210,11 @@ pub fn gsea(mut gene_list: Vec<RankListItem>, gmt: Vec<Item>) {
     for i in 0..phenotypes.len() {
         order_dict.insert(&phenotypes[i], i);
     }
-    // let mut signs: Vec<bool> = ranks.iter().map(|x| x.is_sign_positive()).collect();
     let mut smallrng = rand::rngs::SmallRng::from_entropy();
     let mut permutations: Vec<Vec<usize>> = Vec::new();
     (0..1000).for_each(|_i| {
-        // signs.shuffle(&mut smallrng);
-        // let mut new_items: Vec<RankListItem> = (0..signs.len())
-        //     .collect::<Vec<usize>>()
-        //     .par_iter()
-        //     .map(|j| RankListItem {
-        //         analyte: gene_list[*j].analyte.clone(),
-        //         rank: if signs[*j] {
-        //             gene_list[*j].rank.abs()
-        //         } else {
-        //             -(gene_list[*j].rank.abs())
-        //         },
-        //     })
-        //     .collect();
-
-        // new_items.sort_by(|a, b| b.rank.partial_cmp(&a.rank).unwrap());
-        // let new_order = new_items
-        //     .par_iter()
-        //     .map(|x| order_dict[&x.analyte])
-        //     .collect();
         let mut new_order: Vec<usize> = (0..phenotypes.len()).collect();
         new_order.shuffle(&mut smallrng);
-        // println!("{:?}", new_order);
         permutations.push(new_order);
     });
     let all_nes = Arc::new(Mutex::new(Vec::new()));
@@ -322,20 +273,13 @@ pub fn gsea(mut gene_list: Vec<RankListItem>, gmt: Vec<Item>) {
             .filter(|&x| x.abs() >= nes_abs)
             .count() as f64;
         let fdr: f64 = (top_val / top_len) / (bottom_val / bottom_len);
-        // if fdr < 0.7 {
-        //     println!(
-        //         "{:?}/{:?}",
-        //         top_val / top_len as f64,
-        //         bottom_val / bottom_len as f64
-        //     );
-        // }
         final_gsea.push(partial_results[i].add_fdr(fdr));
     }
     let mut sigs: i32 = 0;
     for res in final_gsea {
         if res.p <= 0.05 {
             println!(
-                "{:?}: p: {:?}, fdr: {:?}, es: {:?}, nes: {:?}",
+                "{}: p: {:?}, fdr: {:?}, es: {:?}, nes: {:?}",
                 res.phenotype, res.p, res.fdr, res.es, res.nes
             );
             sigs += 1;

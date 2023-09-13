@@ -24,9 +24,9 @@ pub fn read_gmt_file(path: String) -> Result<Vec<Item>, Box<std::io::Error>> {
         let parts = result[2..].to_vec();
         let p_len = parts.len();
         let item = Item { id, url, parts };
-        if p_len >= 15 { // TODO: ADD PARAMETER FOR CUTOFF
+        // if p_len >= 15 { // TODO: ADD PARAMETER FOR CUTOFF
             items.push(item);
-        }
+        // }
     }
     Ok(items)
 }
