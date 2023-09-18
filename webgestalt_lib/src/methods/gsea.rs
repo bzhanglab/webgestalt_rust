@@ -3,7 +3,7 @@ use crate::readers::utils::Item;
 use rand::prelude::SliceRandom;
 use rand::SeedableRng;
 use rayon::prelude::*;
-use rustc_hash::{FxHashMap, FxHashSet};
+use rustc_hash::FxHashSet;
 use std::sync::{Arc, Mutex};
 
 #[derive(Clone)]
@@ -91,7 +91,7 @@ pub fn analyte_set_p(
             overlap += 1;
         }
     }
-    if overlap < 20 || overlap > 500 {
+    if overlap < 15 || overlap > 500 {
         // TODO: Make numbers parameters (maybe a struct)
         (
             GSEAResult {
@@ -126,7 +126,7 @@ pub fn analyte_set_p(
             false,
         );
         let mut es_iter = Vec::new(); // Not parallelized because locking is expensive
-        (0..permutations).into_iter().for_each(|i| {
+        (0..permutations).for_each(|i| {
             // get es for the permutations
             let (p_es, _) = enrichment_score(
                 &has_analyte,
@@ -138,32 +138,6 @@ pub fn analyte_set_p(
             );
             es_iter.push(p_es);
         });
-        let up: Vec<f64> = es_iter // get positive (up) ES
-            .par_iter()
-            .filter(|&x| *x >= 0_f64)
-            .copied()
-            .collect();
-        let down: Vec<f64> = es_iter // down scores
-            .par_iter()
-            .filter(|&x| *x < 0_f64)
-            .copied()
-            .collect();
-        let up_len = up.len();
-        let down_len = down.len();
-        let up_avg: f64 = up.iter().sum::<f64>() / (up_len as f64 + 0.000001) + 0.000001; // up
-                                                                                          // average
-        let down_avg: f64 = down.iter().sum::<f64>() / (down_len as f64 + 0.000001) - 0.000001; // up
-                                                                                                // average
-        let mut nes_es: Vec<f64> = up.par_iter().map(|x| x / up_avg).collect(); // get all
-                                                                                // normalized scores for up
-        nes_es.extend(down.par_iter().map(|x| -x / down_avg).collect::<Vec<f64>>()); // extend with
-                                                                                     // down scores
-        let norm_es: f64 = if real_es >= 0_f64 {
-            // get normalized score for the real run
-            real_es / up_avg
-        } else {
-            -real_es / down_avg
-        };
         let side: Vec<&f64> = if real_es >= 0_f64 {
             // get side of distribution for p value
             es_iter.iter().filter(|x| *x >= &0_f64).collect()
@@ -181,6 +155,33 @@ pub fn analyte_set_p(
             // no higher values found, so p is '0.0'. Previously < 2.2e-16 on the R version
             0.0
         };
+        let up: Vec<f64> = es_iter // get positive (up) ES
+            .par_iter()
+            .filter(|&x| *x >= 0_f64)
+            .copied()
+            .collect();
+        let down: Vec<f64> = es_iter // down scores
+            .par_iter()
+            .filter(|&x| *x < 0_f64)
+            .copied()
+            .collect();
+        let up_len = up.len();
+        let down_len = down.len();
+        let up_avg: f64 = up.iter().sum::<f64>() / (up_len as f64 + 0.000001) + 0.000001; // up
+                                                                                          // average
+        let down_avg: f64 = down.iter().sum::<f64>() / (down_len as f64 + 0.000001) - 0.000001; // down
+                                                                                                // average
+        let mut nes_es: Vec<f64> = up.par_iter().map(|x| x / up_avg).collect(); // get all
+                                                                                // normalized scores for up
+        nes_es.extend(down.par_iter().map(|x| -x / down_avg).collect::<Vec<f64>>()); // extend with
+                                                                                     // down scores
+        let norm_es: f64 = if real_es >= 0_f64 {
+            // get normalized score for the real run
+            real_es / up_avg
+        } else {
+            -real_es / down_avg
+        };
+
         (
             GSEAResult {
                 set: item.id.clone(),
@@ -259,7 +260,7 @@ pub fn gsea(mut analyte_list: Vec<RankListItem>, gmt: Vec<Item>) {
     gmt.par_iter().for_each(|analyte_set| {
         // parallelized scoring of all sets
         let (y, nes_iter) = analyte_set_p(&analytes, &ranks, analyte_set, 1.0, &permutations);
-        if y.overlap >= 20 && y.overlap <= 500 {
+        if y.overlap >= 15 && y.overlap <= 500 {
             all_nes.lock().unwrap().extend(nes_iter);
             set_nes.lock().unwrap().push(y.nes);
             all_res.lock().unwrap().push(y);
@@ -302,7 +303,7 @@ pub fn gsea(mut analyte_list: Vec<RankListItem>, gmt: Vec<Item>) {
         } else {
             observed_distribution
                 .par_iter()
-                .filter(|&x| x <= &0_f64)
+                .filter(|&x| x < &0_f64)
                 .collect()
         };
         let bottom_len = if bottom_side.is_empty() {
@@ -319,7 +320,7 @@ pub fn gsea(mut analyte_list: Vec<RankListItem>, gmt: Vec<Item>) {
     }
     let mut sigs: i32 = 0;
     for res in final_gsea {
-        if res.p <= 0.05 {
+        if res.p <= 0.05 || res.set.contains("hsa00532") {
             // basic reporting  TODO: REMOVE
             println!(
                 "{}: p: {:?}, fdr: {:?}, es: {:?}, nes: {:?}",
