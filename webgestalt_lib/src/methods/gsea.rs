@@ -35,6 +35,7 @@ impl GSEAResult {
     }
 }
 
+#[derive(Clone)]
 pub struct FullGSEAResult {
     pub set: String,
     pub p: f64,
