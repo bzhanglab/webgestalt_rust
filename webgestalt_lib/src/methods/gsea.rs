@@ -242,7 +242,13 @@ fn enrichment_score(
     (max_score, max_hits)
 }
 
-pub fn gsea(mut analyte_list: Vec<RankListItem>, gmt: Vec<Item>) {
+/// Run GSEA andf return a [`Vec<FullGSEAResult`] for all analayte sets.
+///
+/// # Parameters
+///
+/// - `analyte_list` - [`Vec<RankListItem>`] of the rank list
+/// - `gmt` - [`Vec<Item>`] of gmt file
+pub fn gsea(mut analyte_list: Vec<RankListItem>, gmt: Vec<Item>) -> Vec<FullGSEAResult> {
     println!("Starting GSEA Calculation.");
     analyte_list.sort_by(|a, b| b.rank.partial_cmp(&a.rank).unwrap()); // sort list
     let (analytes, ranks) = RankListItem::to_vecs(analyte_list.clone()); // seperate into vectors
@@ -319,8 +325,8 @@ pub fn gsea(mut analyte_list: Vec<RankListItem>, gmt: Vec<Item>) {
         final_gsea.push(partial_results[i].add_fdr(fdr));
     }
     let mut sigs: i32 = 0;
-    for res in final_gsea {
-        if res.p <= 0.05 || res.set.contains("hsa00532") {
+    for res in final_gsea.iter() {
+        if res.p <= 0.05 {
             // basic reporting  TODO: REMOVE
             println!(
                 "{}: p: {:?}, fdr: {:?}, es: {:?}, nes: {:?}",
@@ -330,4 +336,5 @@ pub fn gsea(mut analyte_list: Vec<RankListItem>, gmt: Vec<Item>) {
         }
     }
     println!("Found {:?} significant pathways.", sigs);
+    final_gsea
 }
