@@ -1,6 +1,10 @@
 pub mod utils;
 use crate::methods::gsea::RankListItem;
-use std::fs::File;
+use rustc_hash::FxHashSet;
+use std::{
+    fs::File,
+    io::{prelude::*, BufReader},
+};
 use utils::Item;
 
 pub fn read_gmt_file(path: String) -> Result<Vec<Item>, Box<std::io::Error>> {
@@ -49,4 +53,18 @@ pub fn read_rank_file(path: String) -> Result<Vec<RankListItem>, Box<std::io::Er
         items.push(item);
     }
     Ok(items)
+}
+
+pub fn read_single_list(path: String) -> FxHashSet<String> {
+    let file = File::open(path).expect("no such file");
+    let buf = BufReader::new(file);
+    let mut h = rustc_hash::FxHashSet::default();
+    let v: Vec<String> = buf
+        .lines()
+        .map(|l| l.expect("Could not parse line"))
+        .collect();
+    for i in v {
+        h.insert(i);
+    }
+    h
 }

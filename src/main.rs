@@ -67,10 +67,30 @@ fn main() {
                 let start = Instant::now();
                 webgestalt_lib::methods::gsea::gsea(gene_list.unwrap(), gmt.unwrap());
                 let duration = start.elapsed();
-                println!("New Hash\nTime took: {:?}", duration);
+                println!("GSEA\nTime took: {:?}", duration);
             }
             Some(ExampleOptions::Ora) => {
-                println!("ORA example not implemented.")
+                let gene_list = webgestalt_lib::readers::read_single_list(
+                    "webgestalt_lib/data/genelist.txt".to_owned(),
+                );
+                let reference = webgestalt_lib::readers::read_single_list(
+                    "webgestalt_lib/data/reference.txt".to_owned(),
+                );
+                let gmt = webgestalt_lib::readers::read_gmt_file(
+                    "webgestalt_lib/data/ktest.gmt".to_owned(),
+                );
+                let start = Instant::now();
+                let x: Vec<webgestalt_lib::methods::ora::ORAResult> =
+                    webgestalt_lib::methods::ora::get_ora(&gene_list, &reference, gmt.unwrap());
+                let mut count = 0;
+                for i in x {
+                    if i.p < 0.05 {
+                        println!("{}: {}, {}", i.set, i.p, i.overlap);
+                        count += 1;
+                    }
+                }
+                let duration = start.elapsed();
+                println!("ORA\nTime took: {:?}\nFound {} significant pathways", duration, count);
             }
             _ => todo!("HELLO"),
         },
