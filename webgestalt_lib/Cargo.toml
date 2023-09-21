@@ -13,6 +13,7 @@ rand = {version= "0.8.5", features=["small_rng"]}
 rayon = "1.7.0"
 rustc-hash = "1.1.0"
 statrs = "0.16.0"
+adjustp = "0.1.4"
 
 [dev-dependencies]
 pretty_assertions = "1.4.0"

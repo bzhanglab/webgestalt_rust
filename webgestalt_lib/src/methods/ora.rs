@@ -1,26 +1,27 @@
 use crate::readers::utils::Item;
+use adjustp::{adjust, Procedure};
 use rayon::prelude::*;
-use rustc_hash::{FxHashMap, FxHashSet};
-use statrs::distribution::{Discrete, Hypergeometric};
+use rustc_hash::FxHashSet;
+use statrs::distribution::{DiscreteCDF, Hypergeometric, Discrete};
 use std::sync::{Arc, Mutex};
-
 #[derive(Debug)]
 pub struct ORAResult {
+    pub set: String,
+    pub p: f64,
+    pub fdr: f64,
+    pub overlap: i64,
+}
+
+#[derive(Debug, Clone)]
+pub struct PartialORAResult {
     pub set: String,
     pub p: f64,
     pub overlap: i64,
 }
 
-pub fn ora_p(big_n: i64, m: i64, n: i64, k: i64) -> f64 {
-    let result = Hypergeometric::new((big_n + n) as u64, n as u64, (m + k) as u64).unwrap();
-    let mut p: f64 = 0.0;
-    for i in k..=(m + k) {
-        let x = result.pmf(i as u64);
-        if !x.is_nan() {
-            p += x
-        }
-    }
-    p
+pub fn ora_p(m: i64, j: i64, n: i64, k: i64) -> f64 {
+    let result = Hypergeometric::new(m as u64, j as u64, n as u64).unwrap();
+    result.sf((k - 1) as u64)
 }
 
 pub fn get_ora(
@@ -28,28 +29,48 @@ pub fn get_ora(
     reference: &FxHashSet<String>,
     gmt: Vec<Item>,
 ) -> Vec<ORAResult> {
-    let big_n: i64 = reference.len() as i64;
+    let m: i64 = reference.len() as i64;
     let n: i64 = gene_list.len() as i64;
     let res = Arc::new(Mutex::new(Vec::new()));
     gmt.par_iter().for_each(|i| {
-        let mut m: i64 = 0;
-        let mut enriched_parts: FxHashSet<String> = FxHashSet::default();
-        let mut k: i64 = 0;
-        for j in i.parts.iter() {
-            if gene_list.contains(j) {
-                k += 1;
-                enriched_parts.insert(j.to_owned());
+        if i.parts.len() >= 5 {
+            let mut j: i64 = 0;
+            let mut enriched_parts: FxHashSet<String> = FxHashSet::default();
+            let mut k: i64 = 0;
+            for analyte in i.parts.iter() {
+                if gene_list.contains(analyte) {
+                    k += 1;
+                    enriched_parts.insert(analyte.to_owned());
+                }
+                if reference.contains(analyte) {
+                    j += 1;
+                }
             }
-            if reference.contains(j) {
-                m += 1;
+            if k >= 5 {
+                if i.id == "hsa05221" {
+                    println!("{}, {}, {}, {}", m, j, n, k);
+                }
+                let p = ora_p(m, j, n, k);
+                res.lock().unwrap().push(PartialORAResult {
+                    set: i.id.clone(),
+                    p,
+                    overlap: k,
+                });
             }
         }
-        let p = ora_p(big_n, m, n, k);
-        res.lock().unwrap().push(ORAResult {
-            set: i.id.clone(),
-            p,
-            overlap: k,
-        });
     });
-    Arc::try_unwrap(res).unwrap().into_inner().unwrap()
+
+    let partials = res.lock().unwrap();
+    let p_vals: Vec<f64> = partials.iter().map(|x| x.p).collect();
+    let fdrs: Vec<f64> = adjust(&p_vals, Procedure::BenjaminiHochberg).iter().map(|x| x*2.0).collect();
+    let mut final_res = Vec::new();
+    for (i, row) in partials.clone().into_iter().enumerate() {
+        final_res.push(ORAResult {
+            set: row.set,
+            p: row.p,
+            fdr: fdrs[i],
+            overlap: row.overlap,
+        })
+    }
+    final_res
 }
