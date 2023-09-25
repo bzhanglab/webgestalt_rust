@@ -4,5 +4,10 @@ pub enum MultiOmicsMethod {
     /// Get the average median ratio of analyte from all the lists
     Mean,
     /// Run each list separately and calculate a meta-p value
-    Meta
+    Meta(MetaAnalysisMethod),
+}
+
+pub enum MetaAnalysisMethod {
+  Stouffer,
+  Fisher
 }

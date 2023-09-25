@@ -2,7 +2,7 @@ use crate::readers::utils::Item;
 use adjustp::{adjust, Procedure};
 use rayon::prelude::*;
 use rustc_hash::FxHashSet;
-use statrs::distribution::{DiscreteCDF, Hypergeometric, Discrete};
+use statrs::distribution::{DiscreteCDF, Hypergeometric};
 use std::sync::{Arc, Mutex};
 #[derive(Debug)]
 pub struct ORAResult {
@@ -24,13 +24,28 @@ pub fn ora_p(m: i64, j: i64, n: i64, k: i64) -> f64 {
     result.sf((k - 1) as u64)
 }
 
+/// Get ORA results for the provided interest list and reference list against the GMT file.
+/// Requires both the interest list and the reference list to be filtered.
+///
+/// # Parameters
+/// - `interest_list` - A [`FxHashSet<String>`] of the interesting analytes
+/// - `reference` - A [`FxHashSet<String>`] of the reference list
+/// - `gmt` - A [`Vec<Item>`] of the gmt file
+///
+/// # Panics
+///
+/// Panics if the [`Arc`] struggles to lock during parallelization.
+///
+/// # Errors
+///
+/// This function will return an error if .
 pub fn get_ora(
-    gene_list: &FxHashSet<String>,
+    interest_list: &FxHashSet<String>,
     reference: &FxHashSet<String>,
     gmt: Vec<Item>,
 ) -> Vec<ORAResult> {
     let m: i64 = reference.len() as i64;
-    let n: i64 = gene_list.len() as i64;
+    let n: i64 = interest_list.len() as i64;
     let res = Arc::new(Mutex::new(Vec::new()));
     gmt.par_iter().for_each(|i| {
         if i.parts.len() >= 5 {
@@ -38,7 +53,7 @@ pub fn get_ora(
             let mut enriched_parts: FxHashSet<String> = FxHashSet::default();
             let mut k: i64 = 0;
             for analyte in i.parts.iter() {
-                if gene_list.contains(analyte) {
+                if interest_list.contains(analyte) {
                     k += 1;
                     enriched_parts.insert(analyte.to_owned());
                 }
@@ -62,7 +77,10 @@ pub fn get_ora(
 
     let partials = res.lock().unwrap();
     let p_vals: Vec<f64> = partials.iter().map(|x| x.p).collect();
-    let fdrs: Vec<f64> = adjust(&p_vals, Procedure::BenjaminiHochberg).iter().map(|x| x*2.0).collect();
+    let fdrs: Vec<f64> = adjust(&p_vals, Procedure::BenjaminiHochberg)
+        .iter()
+        .map(|x| x * 2.0)
+        .collect();
     let mut final_res = Vec::new();
     for (i, row) in partials.clone().into_iter().enumerate() {
         final_res.push(ORAResult {

@@ -9,7 +9,7 @@ use owo_colors::{OwoColorize, Stream::Stdout, Style};
 
 /// WebGestalt CLI.
 /// ORA and GSEA enrichment tool.
-/// Created by Bing Zhang Lab.
+/// Created by John Elizarraras from the Bing Zhang Lab.
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
 struct CliArgs {
