@@ -8,6 +8,6 @@ pub enum MultiOmicsMethod {
 }
 
 pub enum MetaAnalysisMethod {
-  Stouffer,
-  Fisher
+    Stouffer,
+    Fisher,
 }

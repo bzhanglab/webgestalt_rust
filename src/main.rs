@@ -25,6 +25,8 @@ enum Commands {
     Example(ExampleArgs),
     /// Run GSEA on the provided files
     Gsea(GseaArgs),
+    /// Run ORA using the provided files
+    Ora(ORAArgs),
 }
 
 #[derive(Debug, Args)]
@@ -50,6 +52,16 @@ struct GseaArgs {
     rnk: Option<String>,
 }
 
+#[derive(Args)]
+struct ORAArgs {
+    /// Path to the GMT file of interest
+    gmt: Option<String>,
+    /// Path to the file containing the interesting analytes
+    interest: Option<String>,
+    /// Path the file containing the reference list
+    reference: Option<String>,
+}
+
 fn main() {
     let args = CliArgs::parse();
     match &args.command {
@@ -62,7 +74,7 @@ fn main() {
                     "webgestalt_lib/data/test.rnk".to_owned(),
                 );
                 let gmt = webgestalt_lib::readers::read_gmt_file(
-                    "webgestalt_lib/data/ktest.gmt".to_owned(),
+                    "webgestalt_lib/data/test.gmt".to_owned(),
                 );
                 let start = Instant::now();
                 webgestalt_lib::methods::gsea::gsea(gene_list.unwrap(), gmt.unwrap());
@@ -71,7 +83,7 @@ fn main() {
             }
             Some(ExampleOptions::Ora) => {
                 let (gmt, gene_list, reference) = webgestalt_lib::readers::read_ora_files(
-                    "webgestalt_lib/data/ktest.gmt".to_owned(),
+                    "webgestalt_lib/data/test.gmt".to_owned(),
                     "webgestalt_lib/data/genelist.txt".to_owned(),
                     "webgestalt_lib/data/reference.txt".to_owned(),
                 );
@@ -109,6 +121,23 @@ fn main() {
                 webgestalt_lib::readers::read_gmt_file(gsea_args.gmt.clone().unwrap()).unwrap();
             webgestalt_lib::methods::gsea::gsea(gene_list, gmt);
             println!("Done with GSEA");
+        }
+        Some(Commands::Ora(ora_args)) => {
+            let style = Style::new().red().bold();
+            if ora_args.gmt.is_none() || ora_args.interest.is_none() || ora_args.reference.is_none()
+            {
+                println!(
+                    "{}: DID NOT PROVIDE PATHS FOR GMT, INTEREST, AND REFERENCE FILE.",
+                    "ERROR".if_supports_color(Stdout, |text| text.style(style))
+                );
+                return;
+            }
+            let (gmt, interest, reference) = webgestalt_lib::readers::read_ora_files(
+                ora_args.gmt.clone().unwrap(),
+                ora_args.interest.clone().unwrap(),
+                ora_args.reference.clone().unwrap(),
+            );
+            webgestalt_lib::methods::ora::get_ora(&interest, &reference, gmt);
         }
         _ => {
             println!("Please select a command. Run --help for options.")
