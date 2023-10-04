@@ -14,6 +14,7 @@ pub enum MalformedError {
 
 pub enum StatisticsError {
     FoundNANValue,
+    InvalidValue,
 }
 
 #[cfg(test)]

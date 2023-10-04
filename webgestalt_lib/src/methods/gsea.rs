@@ -6,18 +6,41 @@ use rayon::prelude::*;
 use rustc_hash::FxHashSet;
 use std::sync::{Arc, Mutex};
 
+/// Parameters for GSEA
+pub struct GSEAConfig {
+    /// Power to raise each rank during the enrichment scoring
+    pub p: f64,
+    /// Minimum overlap the analyte set must have to be included in the analysis
+    pub min_overlap: i32,
+    /// Maximum overlap the analyte set must have to be included in the analysis
+    pub max_overlap: i32,
+    /// Number of permutations to use in the analysis
+    pub permutations: i32,
+}
+
+impl Default for GSEAConfig {
+    fn default() -> Self {
+        GSEAConfig {
+            p: 1.0,
+            min_overlap: 15,
+            max_overlap: 500,
+            permutations: 1000,
+        }
+    }
+}
+
 #[derive(Clone)]
 pub struct RankListItem {
     pub analyte: String,
     pub rank: f64,
 }
 
-pub struct GSEAResult {
+struct GSEAResult {
     // TODO: Look at adding enrichment and normalized enrichment score
-    pub set: String,
-    pub p: f64,
-    pub es: f64,
-    pub nes: f64,
+    set: String,
+    p: f64,
+    es: f64,
+    nes: f64,
     overlap: i32,
     leading_edge: i32,
 }
@@ -72,7 +95,7 @@ impl RankListItem {
 /// # Panics
 ///
 /// Panics if the `ranks` and `analytes` parameters are not the same length.
-pub fn analyte_set_p(
+fn analyte_set_p(
     analytes: &Vec<String>,
     ranks: &[f64],
     item: &Item,

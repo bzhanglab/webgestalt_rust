@@ -76,7 +76,7 @@ pub fn read_ora_files(
 ) -> (Vec<Item>, FxHashSet<String>, FxHashSet<String>) {
     let file = File::open(gmt_path).unwrap();
     let mut rdr = csv::ReaderBuilder::new()
-        .delimiter(b'\t')
+        .delimiter(b'\t') // TODO: Add option to use different delimeter
         .flexible(true)
         .has_headers(false)
         .from_reader(file);
