@@ -13,5 +13,5 @@ cargo build --release
 ## Run
 
 ```shell
-cargo run --release
+cargo run --release -- example ora
 ```
