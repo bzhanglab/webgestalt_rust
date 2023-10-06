@@ -272,13 +272,17 @@ fn enrichment_score(
 ///
 /// - `analyte_list` - [`Vec<RankListItem>`] of the rank list
 /// - `gmt` - [`Vec<Item>`] of gmt file
-pub fn gsea(mut analyte_list: Vec<RankListItem>, gmt: Vec<Item>) -> Vec<FullGSEAResult> {
+pub fn gsea(
+    mut analyte_list: Vec<RankListItem>,
+    gmt: Vec<Item>,
+    config: GSEAConfig,
+) -> Vec<FullGSEAResult> {
     println!("Starting GSEA Calculation.");
     analyte_list.sort_by(|a, b| b.rank.partial_cmp(&a.rank).unwrap()); // sort list
     let (analytes, ranks) = RankListItem::to_vecs(analyte_list.clone()); // seperate into vectors
     let mut smallrng = rand::rngs::SmallRng::from_entropy();
     let mut permutations: Vec<Vec<usize>> = Vec::new();
-    (0..1000).for_each(|_i| {
+    (0..config.permutations).for_each(|_i| {
         // get random permutations that are shared for all analyte sets
         let mut new_order: Vec<usize> = (0..analytes.len()).collect();
         new_order.shuffle(&mut smallrng);
@@ -290,7 +294,7 @@ pub fn gsea(mut analyte_list: Vec<RankListItem>, gmt: Vec<Item>) -> Vec<FullGSEA
     gmt.par_iter().for_each(|analyte_set| {
         // parallelized scoring of all sets
         let (y, nes_iter) = analyte_set_p(&analytes, &ranks, analyte_set, 1.0, &permutations);
-        if y.overlap >= 15 && y.overlap <= 500 {
+        if y.overlap >= config.min_overlap && y.overlap <= config.max_overlap {
             all_nes.lock().unwrap().extend(nes_iter);
             set_nes.lock().unwrap().push(y.nes);
             all_res.lock().unwrap().push(y);
@@ -300,21 +304,31 @@ pub fn gsea(mut analyte_list: Vec<RankListItem>, gmt: Vec<Item>) -> Vec<FullGSEA
     let observed_distribution = set_nes.lock().unwrap();
     let partial_results: std::sync::MutexGuard<'_, Vec<GSEAResult>> = all_res.lock().unwrap();
     let mut final_gsea: Vec<FullGSEAResult> = Vec::new();
+    let postive_top_side = null_distribution
+        .par_iter()
+        .filter(|&x| x >= &0_f64)
+        .collect();
+    let negative_top_side = null_distribution
+        .par_iter()
+        .filter(|&x| x < &0_f64)
+        .collect();
+    let postive_bottom_side = observed_distribution
+        .par_iter()
+        .filter(|&x| x >= &0_f64)
+        .collect();
+    let negative_bottom_side = observed_distribution
+        .par_iter()
+        .filter(|&x| x < &0_f64)
+        .collect();
     for i in 0..partial_results.len() {
         // get all FDR values
         let nes = partial_results[i].nes;
-        let top_side: Vec<&f64> = if nes > 0_f64 {
+        let top_side: &Vec<&f64> = if nes > 0_f64 {
             // positive null distribution
-            null_distribution
-                .par_iter()
-                .filter(|&x| x > &0_f64)
-                .collect()
+            &postive_top_side
         } else {
             // negative null distribution
-            null_distribution
-                .par_iter()
-                .filter(|&x| x < &0_f64)
-                .collect()
+            &negative_top_side
         };
         let top_len = if top_side.is_empty() {
             // avoid dividing by 0
@@ -325,16 +339,10 @@ pub fn gsea(mut analyte_list: Vec<RankListItem>, gmt: Vec<Item>) -> Vec<FullGSEA
         let nes_abs = nes.abs();
         let top_val = top_side.par_iter().filter(|&x| x.abs() >= nes_abs).count() as f64; // get
                                                                                           // count of scores higher than current NES
-        let bottom_side: Vec<&f64> = if nes >= 0_f64 {
-            observed_distribution
-                .par_iter()
-                .filter(|&x| x >= &0_f64)
-                .collect()
+        let bottom_side: &Vec<&f64> = if nes >= 0_f64 {
+            &postive_bottom_side
         } else {
-            observed_distribution
-                .par_iter()
-                .filter(|&x| x < &0_f64)
-                .collect()
+            &negative_bottom_side
         };
         let bottom_len = if bottom_side.is_empty() {
             0.000001

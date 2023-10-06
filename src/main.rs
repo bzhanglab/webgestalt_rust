@@ -6,6 +6,7 @@ use bincode::deserialize_from;
 use clap::Subcommand;
 use clap::{Args, Parser};
 use owo_colors::{OwoColorize, Stream::Stdout, Style};
+use webgestalt_lib::methods::gsea::GSEAConfig;
 
 /// WebGestalt CLI.
 /// ORA and GSEA enrichment tool.
@@ -77,7 +78,11 @@ fn main() {
                     "webgestalt_lib/data/test.gmt".to_owned(),
                 );
                 let start = Instant::now();
-                webgestalt_lib::methods::gsea::gsea(gene_list.unwrap(), gmt.unwrap());
+                webgestalt_lib::methods::gsea::gsea(
+                    gene_list.unwrap(),
+                    gmt.unwrap(),
+                    GSEAConfig::default(),
+                );
                 let duration = start.elapsed();
                 println!("GSEA\nTime took: {:?}", duration);
             }
@@ -119,7 +124,7 @@ fn main() {
                 webgestalt_lib::readers::read_rank_file(gsea_args.rnk.clone().unwrap()).unwrap();
             let gmt =
                 webgestalt_lib::readers::read_gmt_file(gsea_args.gmt.clone().unwrap()).unwrap();
-            webgestalt_lib::methods::gsea::gsea(gene_list, gmt);
+            webgestalt_lib::methods::gsea::gsea(gene_list, gmt, GSEAConfig::default());
             println!("Done with GSEA");
         }
         Some(Commands::Ora(ora_args)) => {
