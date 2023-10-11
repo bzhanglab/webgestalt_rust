@@ -43,6 +43,7 @@ struct GSEAResult {
     nes: f64,
     overlap: i32,
     leading_edge: i32,
+    running_sum: Vec<f64>,
 }
 
 impl GSEAResult {
@@ -54,6 +55,7 @@ impl GSEAResult {
             es: self.es,
             nes: self.nes,
             leading_edge: self.leading_edge,
+            running_sum: self.running_sum.clone(),
         }
     }
 }
@@ -66,6 +68,7 @@ pub struct FullGSEAResult {
     pub es: f64,
     pub nes: f64,
     pub leading_edge: i32,
+    pub running_sum: Vec<f64>,
 }
 
 impl RankListItem {
@@ -126,6 +129,7 @@ fn analyte_set_p(
                 es: 0.0,
                 overlap,
                 leading_edge: 0,
+                running_sum: Vec::new(),
             },
             Vec::new(),
         )
@@ -140,7 +144,7 @@ fn analyte_set_p(
         } else {
             ranks.par_iter().map(|x| x.abs()).collect()
         };
-        let (real_es, max_hits) = enrichment_score(
+        let (real_es, max_hits, running_sum) = enrichment_score(
             // get normal es and leading edge max_hits
             &has_analyte,
             &new_ranks,
@@ -152,7 +156,7 @@ fn analyte_set_p(
         let mut es_iter = Vec::new(); // Not parallelized because locking is expensive
         (0..permutations).for_each(|i| {
             // get es for the permutations
-            let (p_es, _) = enrichment_score(
+            let (p_es, _, _) = enrichment_score(
                 &has_analyte,
                 &new_ranks,
                 &permutations_vec[i],
@@ -214,6 +218,7 @@ fn analyte_set_p(
                 es: real_es,
                 overlap,
                 leading_edge: max_hits,
+                running_sum,
             },
             nes_es,
         )
@@ -228,12 +233,13 @@ fn enrichment_score(
     inverse_size_dif: f64,
     inverse_nr: f64,
     is_perm: bool,
-) -> (f64, i32) {
+) -> (f64, i32, Vec<f64>) {
     let mut max_score: f64 = 0.0;
     let mut hits: i32 = 0;
     let mut max_hits: i32 = 0;
     let mut sum_hits: f64 = 0.0;
     let mut sum_miss: f64 = 0.0;
+    let mut running_sum: Vec<f64> = Vec::new();
     let inv_nr = if is_perm {
         // calculate new N_r if it is a permutation
         let mut temp_n: f64 = 0.0;
@@ -257,13 +263,16 @@ fn enrichment_score(
             sum_miss += 1.0;
         }
         let es = (sum_hits * inv_nr) - (sum_miss * inverse_size_dif); // iteration score
+        if !is_perm {
+            running_sum.push(es);
+        }
         if es.abs() > max_score.abs() {
             // if bigger deviation from zero, store
             max_score = es;
             max_hits = hits;
         }
     }
-    (max_score, max_hits)
+    (max_score, max_hits, running_sum)
 }
 
 /// Run GSEA andf return a [`Vec<FullGSEAResult`] for all analayte sets.
