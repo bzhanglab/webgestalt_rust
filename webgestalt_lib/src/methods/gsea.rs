@@ -209,7 +209,6 @@ fn analyte_set_p(
         } else {
             -real_es / down_avg
         };
-
         (
             GSEAResult {
                 set: item.id.clone(),
@@ -365,17 +364,5 @@ pub fn gsea(
         let fdr: f64 = (top_val * bottom_len) / (bottom_val * top_len); // get FDR value
         final_gsea.push(partial_results[i].add_fdr(fdr));
     }
-    let mut sigs: i32 = 0;
-    for res in final_gsea.iter() {
-        if res.p <= 0.05 {
-            // basic reporting  TODO: REMOVE
-            println!(
-                "{}: p: {:?}, fdr: {:?}, es: {:?}, nes: {:?}",
-                res.set, res.p, res.fdr, res.es, res.nes
-            );
-            sigs += 1;
-        }
-    }
-    println!("Found {:?} significant pathways.", sigs);
     final_gsea
 }
