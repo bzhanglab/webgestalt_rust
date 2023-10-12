@@ -7,6 +7,7 @@ use clap::Subcommand;
 use clap::{Args, Parser};
 use owo_colors::{OwoColorize, Stream::Stdout, Style};
 use webgestalt_lib::methods::gsea::GSEAConfig;
+use webgestalt_lib::methods::ora::ORAConfig;
 
 /// WebGestalt CLI.
 /// ORA and GSEA enrichment tool.
@@ -95,7 +96,12 @@ fn main() {
                 let gmtcount = gmt.len();
                 let start = Instant::now();
                 let x: Vec<webgestalt_lib::methods::ora::ORAResult> =
-                    webgestalt_lib::methods::ora::get_ora(&gene_list, &reference, gmt);
+                    webgestalt_lib::methods::ora::get_ora(
+                        &gene_list,
+                        &reference,
+                        gmt,
+                        ORAConfig::default(),
+                    );
                 let mut count = 0;
                 for i in x {
                     if i.p < 0.05 && i.fdr < 0.05 {
@@ -142,7 +148,7 @@ fn main() {
                 ora_args.interest.clone().unwrap(),
                 ora_args.reference.clone().unwrap(),
             );
-            webgestalt_lib::methods::ora::get_ora(&interest, &reference, gmt);
+            webgestalt_lib::methods::ora::get_ora(&interest, &reference, gmt, ORAConfig::default());
         }
         _ => {
             println!("Please select a command. Run --help for options.")

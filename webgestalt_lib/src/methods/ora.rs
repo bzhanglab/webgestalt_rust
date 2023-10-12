@@ -4,19 +4,39 @@ use rayon::prelude::*;
 use rustc_hash::FxHashSet;
 use statrs::distribution::{DiscreteCDF, Hypergeometric};
 use std::sync::{Arc, Mutex};
+
+pub struct ORAConfig {
+    pub min_overlap: i64,
+    pub min_set_size: usize,
+    pub max_set_size: usize,
+}
+
+impl Default for ORAConfig {
+    fn default() -> Self {
+        ORAConfig {
+            min_overlap: 5,
+            min_set_size: 5,
+            max_set_size: 500,
+        }
+    }
+}
+
 #[derive(Debug)]
 pub struct ORAResult {
     pub set: String,
     pub p: f64,
     pub fdr: f64,
     pub overlap: i64,
+    pub expected: f64,
+    pub enrichment_ratio: f64,
 }
 
 #[derive(Debug, Clone)]
-pub struct PartialORAResult {
-    pub set: String,
-    pub p: f64,
-    pub overlap: i64,
+struct PartialORAResult {
+    set: String,
+    p: f64,
+    overlap: i64,
+    expected: f64,
 }
 
 pub fn ora_p(m: i64, j: i64, n: i64, k: i64) -> f64 {
@@ -43,12 +63,14 @@ pub fn get_ora(
     interest_list: &FxHashSet<String>,
     reference: &FxHashSet<String>,
     gmt: Vec<Item>,
+    config: ORAConfig,
 ) -> Vec<ORAResult> {
     let m: i64 = reference.len() as i64;
     let n: i64 = interest_list.len() as i64;
     let res = Arc::new(Mutex::new(Vec::new()));
+    let ratio: f64 = m as f64 / n as f64;
     gmt.par_iter().for_each(|i| {
-        if i.parts.len() >= 5 {
+        if i.parts.len() >= config.min_set_size && i.parts.len() <= config.max_set_size {
             let mut j: i64 = 0;
             let mut enriched_parts: FxHashSet<String> = FxHashSet::default();
             let mut k: i64 = 0;
@@ -61,20 +83,17 @@ pub fn get_ora(
                     j += 1;
                 }
             }
-            if k >= 5 {
-                if i.id == "hsa05221" {
-                    println!("{}, {}, {}, {}", m, j, n, k);
-                }
+            if k >= config.min_overlap{
                 let p = ora_p(m, j, n, k);
                 res.lock().unwrap().push(PartialORAResult {
                     set: i.id.clone(),
                     p,
                     overlap: k,
+                    expected: j as f64 * ratio,
                 });
             }
         }
     });
-
     let partials = res.lock().unwrap();
     let p_vals: Vec<f64> = partials.iter().map(|x| x.p).collect();
     let fdrs: Vec<f64> = adjust(&p_vals, Procedure::BenjaminiHochberg)
@@ -88,6 +107,8 @@ pub fn get_ora(
             p: row.p,
             fdr: fdrs[i],
             overlap: row.overlap,
+            expected: row.expected,
+            enrichment_ratio: row.overlap as f64 / row.expected,
         })
     }
     final_res

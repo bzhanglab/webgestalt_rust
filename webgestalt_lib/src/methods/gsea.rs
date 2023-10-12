@@ -136,8 +136,8 @@ fn analyte_set_p(
     } else {
         let inverse_nr = 1.0 / n_r; // Invert n_r for the enrichment score
         let original_order = (0..analyte_count).collect::<Vec<usize>>(); // get regular order
-        let has_analyte: Vec<bool> = analytes.iter().map(|x| analyte_set.contains(x)).collect(); // create
-                                                                                                 // vector of booleans where T means analyte set has analyte at that index
+        let has_analyte: Vec<bool> = analytes.iter().map(|x| analyte_set.contains(x)).collect(); // create vector of booleans where
+                                                                                                 // true means analyte set has analyte at that index
         let new_ranks: Vec<f64> = if p != 1.0 {
             // raise to power p if needed and take abs
             ranks.par_iter().map(|x| x.abs().powf(p)).collect()
@@ -274,7 +274,7 @@ fn enrichment_score(
     (max_score, max_hits, running_sum)
 }
 
-/// Run GSEA andf return a [`Vec<FullGSEAResult`] for all analayte sets.
+/// Run GSEA and return a [`Vec<FullGSEAResult`] for all analayte sets.
 ///
 /// # Parameters
 ///
