@@ -83,6 +83,7 @@ fn main() {
                     gene_list.unwrap(),
                     gmt.unwrap(),
                     GSEAConfig::default(),
+                    None
                 );
                 let duration = start.elapsed();
                 println!("GSEA\nTime took: {:?}", duration);
@@ -130,7 +131,7 @@ fn main() {
                 webgestalt_lib::readers::read_rank_file(gsea_args.rnk.clone().unwrap()).unwrap();
             let gmt =
                 webgestalt_lib::readers::read_gmt_file(gsea_args.gmt.clone().unwrap()).unwrap();
-            webgestalt_lib::methods::gsea::gsea(gene_list, gmt, GSEAConfig::default());
+            webgestalt_lib::methods::gsea::gsea(gene_list, gmt, GSEAConfig::default(), None);
             println!("Done with GSEA");
         }
         Some(Commands::Ora(ora_args)) => {

@@ -4,7 +4,10 @@ use rand::prelude::SliceRandom;
 use rand::SeedableRng;
 use rayon::prelude::*;
 use rustc_hash::FxHashSet;
-use std::{sync::{Arc, Mutex}, iter};
+use std::{
+    iter,
+    sync::{Arc, Mutex},
+};
 
 /// Parameters for GSEA
 pub struct GSEAConfig {
@@ -16,8 +19,6 @@ pub struct GSEAConfig {
     pub max_overlap: i32,
     /// Number of permutations to use in the analysis
     pub permutations: i32,
-    /// Use provided permutations
-    pub provided_permutations: Option<Vec<Vec<usize>>>,
 }
 
 impl Default for GSEAConfig {
@@ -27,7 +28,6 @@ impl Default for GSEAConfig {
             min_overlap: 15,
             max_overlap: 500,
             permutations: 1000,
-            provided_permutations: None,
         }
     }
 }
@@ -107,6 +107,7 @@ fn analyte_set_p(
     item: &Item,
     p: f64,
     permutations_vec: &Vec<Vec<usize>>,
+    config: &GSEAConfig,
 ) -> (GSEAResult, Vec<f64>) {
     let permutations = permutations_vec.len();
     let analyte_set = FxHashSet::from_iter(item.parts.iter());
@@ -121,7 +122,7 @@ fn analyte_set_p(
             overlap += 1;
         }
     }
-    if overlap < 15 || overlap > 500 {
+    if overlap < config.min_overlap || overlap > config.max_overlap {
         // TODO: Make numbers parameters (maybe a struct)
         (
             GSEAResult {
@@ -287,19 +288,20 @@ pub fn gsea(
     mut analyte_list: Vec<RankListItem>,
     gmt: Vec<Item>,
     config: GSEAConfig,
+    provided_permutations: Option<Vec<Vec<usize>>>,
 ) -> Vec<FullGSEAResult> {
     println!("Starting GSEA Calculation.");
     analyte_list.sort_by(|a, b| b.rank.partial_cmp(&a.rank).unwrap()); // sort list
     let (analytes, ranks) = RankListItem::to_vecs(analyte_list.clone()); // seperate into vectors
-    let permutations: Vec<Vec<usize>> = config
-        .provided_permutations
-        .unwrap_or(make_permuations(config.permutations, analytes.len()));
+    let permutations: Vec<Vec<usize>> =
+        provided_permutations.unwrap_or(make_permuations(config.permutations, analytes.len()));
     let all_nes = Arc::new(Mutex::new(Vec::new()));
     let set_nes = Arc::new(Mutex::new(Vec::new()));
     let all_res = Arc::new(Mutex::new(Vec::new()));
     gmt.par_iter().for_each(|analyte_set| {
         // parallelized scoring of all sets
-        let (y, nes_iter) = analyte_set_p(&analytes, &ranks, analyte_set, 1.0, &permutations);
+        let (y, nes_iter) =
+            analyte_set_p(&analytes, &ranks, analyte_set, 1.0, &permutations, &config);
         if y.overlap >= config.min_overlap && y.overlap <= config.max_overlap {
             all_nes.lock().unwrap().extend(nes_iter);
             set_nes.lock().unwrap().push(y.nes);
