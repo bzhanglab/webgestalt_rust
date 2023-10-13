@@ -83,7 +83,7 @@ pub fn get_ora(
                     j += 1;
                 }
             }
-            if k >= config.min_overlap{
+            if k >= config.min_overlap {
                 let p = ora_p(m, j, n, k);
                 res.lock().unwrap().push(PartialORAResult {
                     set: i.id.clone(),

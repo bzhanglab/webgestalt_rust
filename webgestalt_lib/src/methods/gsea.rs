@@ -16,6 +16,8 @@ pub struct GSEAConfig {
     pub max_overlap: i32,
     /// Number of permutations to use in the analysis
     pub permutations: i32,
+    /// Use provided permutations
+    pub provided_permutations: Option<Vec<Vec<usize>>>,
 }
 
 impl Default for GSEAConfig {
@@ -25,6 +27,7 @@ impl Default for GSEAConfig {
             min_overlap: 15,
             max_overlap: 500,
             permutations: 1000,
+            provided_permutations: None,
         }
     }
 }
@@ -288,14 +291,9 @@ pub fn gsea(
     println!("Starting GSEA Calculation.");
     analyte_list.sort_by(|a, b| b.rank.partial_cmp(&a.rank).unwrap()); // sort list
     let (analytes, ranks) = RankListItem::to_vecs(analyte_list.clone()); // seperate into vectors
-    let mut smallrng = rand::rngs::SmallRng::from_entropy();
-    let mut permutations: Vec<Vec<usize>> = Vec::new();
-    (0..config.permutations).for_each(|_i| {
-        // get random permutations that are shared for all analyte sets
-        let mut new_order: Vec<usize> = (0..analytes.len()).collect();
-        new_order.shuffle(&mut smallrng);
-        permutations.push(new_order);
-    });
+    let permutations: Vec<Vec<usize>> = config
+        .provided_permutations
+        .unwrap_or(make_permuations(config.permutations, analytes.len()));
     let all_nes = Arc::new(Mutex::new(Vec::new()));
     let set_nes = Arc::new(Mutex::new(Vec::new()));
     let all_res = Arc::new(Mutex::new(Vec::new()));
@@ -365,4 +363,16 @@ pub fn gsea(
         final_gsea.push(partial_results[i].add_fdr(fdr));
     }
     final_gsea
+}
+
+pub fn make_permuations(permutations: i32, max: usize) -> Vec<Vec<usize>> {
+    let mut temp_permutations: Vec<Vec<usize>> = Vec::new();
+    let mut smallrng = rand::rngs::SmallRng::from_entropy();
+    (0..permutations).for_each(|_i| {
+        // get random permutations that are shared for all analyte sets
+        let mut new_order: Vec<usize> = (0..max).collect();
+        new_order.shuffle(&mut smallrng);
+        temp_permutations.push(new_order);
+    });
+    temp_permutations
 }
