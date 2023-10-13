@@ -4,7 +4,7 @@ use rand::prelude::SliceRandom;
 use rand::SeedableRng;
 use rayon::prelude::*;
 use rustc_hash::FxHashSet;
-use std::sync::{Arc, Mutex};
+use std::{sync::{Arc, Mutex}, iter};
 
 /// Parameters for GSEA
 pub struct GSEAConfig {
@@ -132,7 +132,7 @@ fn analyte_set_p(
                 es: 0.0,
                 overlap,
                 leading_edge: 0,
-                running_sum: Vec::new(),
+                running_sum: iter::repeat(0.0).take(analyte_count).collect(),
             },
             Vec::new(),
         )
