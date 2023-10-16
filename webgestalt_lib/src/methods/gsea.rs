@@ -123,7 +123,6 @@ fn analyte_set_p(
         }
     }
     if overlap < config.min_overlap || overlap > config.max_overlap {
-        // TODO: Make numbers parameters (maybe a struct)
         (
             GSEAResult {
                 // No GSEA needed
@@ -199,14 +198,10 @@ fn analyte_set_p(
             .collect();
         let up_len = up.len();
         let down_len = down.len();
-        let up_avg: f64 = up.iter().sum::<f64>() / (up_len as f64 + 0.000001) + 0.000001; // up
-                                                                                          // average
-        let down_avg: f64 = down.iter().sum::<f64>() / (down_len as f64 + 0.000001) - 0.000001; // down
-                                                                                                // average
-        let mut nes_es: Vec<f64> = up.par_iter().map(|x| x / up_avg).collect(); // get all
-                                                                                // normalized scores for up
-        nes_es.extend(down.par_iter().map(|x| -x / down_avg).collect::<Vec<f64>>()); // extend with
-                                                                                     // down scores
+        let up_avg: f64 = up.iter().sum::<f64>() / (up_len as f64 + 0.000001) + 0.000001; // up average
+        let down_avg: f64 = down.iter().sum::<f64>() / (down_len as f64 + 0.000001) - 0.000001; // down average
+        let mut nes_es: Vec<f64> = up.par_iter().map(|x| x / up_avg).collect(); // get all normalized scores for up
+        nes_es.extend(down.par_iter().map(|x| -x / down_avg).collect::<Vec<f64>>()); // extend with down scores
         let norm_es: f64 = if real_es >= 0_f64 {
             // get normalized score for the real run
             real_es / up_avg

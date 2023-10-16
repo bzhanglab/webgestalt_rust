@@ -89,7 +89,7 @@ pub fn get_ora(
                     set: i.id.clone(),
                     p,
                     overlap: k,
-                    expected: j as f64 * ratio,
+                    expected: j as f64 * n as f64 / m as f64,
                 });
             }
         }

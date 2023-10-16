@@ -83,7 +83,7 @@ fn main() {
                     gene_list.unwrap(),
                     gmt.unwrap(),
                     GSEAConfig::default(),
-                    None
+                    None,
                 );
                 let duration = start.elapsed();
                 println!("GSEA\nTime took: {:?}", duration);
