@@ -22,9 +22,9 @@ pub fn adjust(p_vals: &[f64]) -> Vec<f64> {
         }
         fdr_vals[carrier.original_order] = fdr;
     }
-    let mut prev_fdr = *fdr_vals.last().unwrap();
-    for i in (0..fdr_vals.len() - 1).rev() {
-        if prev_fdr < fdr_vals[i] {
+    let mut prev_fdr = fdr_vals[0];
+    for i in 1..fdr_vals.len() {
+        if prev_fdr > fdr_vals[i] {
             fdr_vals[i] = prev_fdr;
         } else {
             prev_fdr = fdr_vals[i];
