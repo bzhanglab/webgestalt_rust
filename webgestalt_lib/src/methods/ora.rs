@@ -91,6 +91,13 @@ pub fn get_ora(
                     expected: j as f64 * n as f64 / m as f64,
                 });
             }
+        } else {
+            res.lock().unwrap().push(PartialORAResult {
+                set: i.id.clone(),
+                p: 1.0,
+                overlap: 0,
+                expected: 0.0,
+            })
         }
     });
     let partials = res.lock().unwrap();
