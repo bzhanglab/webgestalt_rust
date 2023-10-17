@@ -82,15 +82,15 @@ pub fn get_ora(
                 j += 1;
             }
         }
-        if k >= config.min_overlap {
-            let p = ora_p(m, j, n, k);
-            res.lock().unwrap().push(PartialORAResult {
-                set: i.id.clone(),
-                p,
-                overlap: k,
-                expected: j as f64 * n as f64 / m as f64,
-            });
-        }
+        // if k >= config.min_overlap {
+        let p = ora_p(m, j, n, k);
+        res.lock().unwrap().push(PartialORAResult {
+            set: i.id.clone(),
+            p,
+            overlap: k,
+            expected: j as f64 * n as f64 / m as f64,
+        });
+        // }
         // } else {
         //     res.lock().unwrap().push(PartialORAResult {
         //         set: i.id.clone(),
