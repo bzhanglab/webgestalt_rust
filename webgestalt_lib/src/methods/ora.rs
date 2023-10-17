@@ -67,9 +67,7 @@ pub fn get_ora(
     let m: i64 = reference.len() as i64;
     let n: i64 = interest_list.len() as i64;
     let res = Arc::new(Mutex::new(Vec::new()));
-    let ratio: f64 = m as f64 / n as f64;
     gmt.par_iter().for_each(|i| {
-        // if i.parts.len() >= config.min_set_size && i.parts.len() <= config.max_set_size {
         let mut j: i64 = 0;
         let mut enriched_parts: FxHashSet<String> = FxHashSet::default();
         let mut k: i64 = 0;
@@ -82,7 +80,6 @@ pub fn get_ora(
                 j += 1;
             }
         }
-        // if k >= config.min_overlap {
         let p = if k == 0 { 1.0 } else { ora_p(m, j, n, k) };
         res.lock().unwrap().push(PartialORAResult {
             set: i.id.clone(),
@@ -90,15 +87,6 @@ pub fn get_ora(
             overlap: k,
             expected: j as f64 * n as f64 / m as f64,
         });
-        // }
-        // } else {
-        //     res.lock().unwrap().push(PartialORAResult {
-        //         set: i.id.clone(),
-        //         p: 1.0,
-        //         overlap: 0,
-        //         expected: 0.0,
-        //     })
-        // }
     });
     let partials = res.lock().unwrap();
     let p_vals: Vec<f64> = partials.iter().map(|x| x.p).collect();
