@@ -14,3 +14,7 @@ test.gmt.wga
 format_benchmarks.tsv
 test.gmt.wga.tar.gz
 test.gmt.tar.gz
+interest.txt
+latest.gmt
+ref.txt
+target_symbols.txt

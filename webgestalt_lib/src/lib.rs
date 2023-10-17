@@ -1,6 +1,6 @@
 pub mod methods;
 pub mod readers;
-
+pub mod stat;
 pub enum Error {
     MalformedFile(MalformedError),
     IOError(std::io::Error),

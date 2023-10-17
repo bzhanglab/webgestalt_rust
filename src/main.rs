@@ -144,12 +144,32 @@ fn main() {
                 );
                 return;
             }
+            let start = Instant::now();
             let (gmt, interest, reference) = webgestalt_lib::readers::read_ora_files(
                 ora_args.gmt.clone().unwrap(),
                 ora_args.interest.clone().unwrap(),
                 ora_args.reference.clone().unwrap(),
             );
-            webgestalt_lib::methods::ora::get_ora(&interest, &reference, gmt, ORAConfig::default());
+            println!("Reading Took {:?}", start.elapsed());
+            let start = Instant::now();
+            let res = webgestalt_lib::methods::ora::get_ora(
+                &interest,
+                &reference,
+                gmt,
+                ORAConfig::default(),
+            );
+            println!("Analysis Took {:?}", start.elapsed());
+            let mut count = 0;
+            for row in res.iter() {
+                if row.p < 0.05 && row.fdr < 0.05 {
+                    count += 1;
+                }
+            }
+            println!(
+                "Found {} significant pathways out of {} pathways",
+                count,
+                res.len()
+            );
         }
         _ => {
             println!("Please select a command. Run --help for options.")
