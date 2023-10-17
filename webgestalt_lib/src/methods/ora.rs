@@ -96,10 +96,7 @@ pub fn get_ora(
     });
     let partials = res.lock().unwrap();
     let p_vals: Vec<f64> = partials.iter().map(|x| x.p).collect();
-    let fdrs: Vec<f64> = adjust(&p_vals, Procedure::BenjaminiHochberg)
-        .iter()
-        .map(|x| x * 2.0)
-        .collect();
+    let fdrs: Vec<f64> = adjust(&p_vals, Procedure::BenjaminiHochberg);
     let mut final_res = Vec::new();
     for (i, row) in partials.clone().into_iter().enumerate() {
         final_res.push(ORAResult {
