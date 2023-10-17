@@ -69,36 +69,36 @@ pub fn get_ora(
     let res = Arc::new(Mutex::new(Vec::new()));
     let ratio: f64 = m as f64 / n as f64;
     gmt.par_iter().for_each(|i| {
-        if i.parts.len() >= config.min_set_size && i.parts.len() <= config.max_set_size {
-            let mut j: i64 = 0;
-            let mut enriched_parts: FxHashSet<String> = FxHashSet::default();
-            let mut k: i64 = 0;
-            for analyte in i.parts.iter() {
-                if interest_list.contains(analyte) {
-                    k += 1;
-                    enriched_parts.insert(analyte.to_owned());
-                }
-                if reference.contains(analyte) {
-                    j += 1;
-                }
+        // if i.parts.len() >= config.min_set_size && i.parts.len() <= config.max_set_size {
+        let mut j: i64 = 0;
+        let mut enriched_parts: FxHashSet<String> = FxHashSet::default();
+        let mut k: i64 = 0;
+        for analyte in i.parts.iter() {
+            if interest_list.contains(analyte) {
+                k += 1;
+                enriched_parts.insert(analyte.to_owned());
             }
-            if k >= config.min_overlap {
-                let p = ora_p(m, j, n, k);
-                res.lock().unwrap().push(PartialORAResult {
-                    set: i.id.clone(),
-                    p,
-                    overlap: k,
-                    expected: j as f64 * n as f64 / m as f64,
-                });
+            if reference.contains(analyte) {
+                j += 1;
             }
-        } else {
+        }
+        if k >= config.min_overlap {
+            let p = ora_p(m, j, n, k);
             res.lock().unwrap().push(PartialORAResult {
                 set: i.id.clone(),
-                p: 1.0,
-                overlap: 0,
-                expected: 0.0,
-            })
+                p,
+                overlap: k,
+                expected: j as f64 * n as f64 / m as f64,
+            });
         }
+        // } else {
+        //     res.lock().unwrap().push(PartialORAResult {
+        //         set: i.id.clone(),
+        //         p: 1.0,
+        //         overlap: 0,
+        //         expected: 0.0,
+        //     })
+        // }
     });
     let partials = res.lock().unwrap();
     let p_vals: Vec<f64> = partials.iter().map(|x| x.p).collect();
