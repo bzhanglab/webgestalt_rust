@@ -1,5 +1,4 @@
-use crate::readers::utils::Item;
-use adjustp::{adjust, Procedure};
+use crate::{readers::utils::Item, stat};
 use rayon::prelude::*;
 use rustc_hash::FxHashSet;
 use statrs::distribution::{DiscreteCDF, Hypergeometric};
@@ -96,7 +95,7 @@ pub fn get_ora(
     });
     let partials = res.lock().unwrap();
     let p_vals: Vec<f64> = partials.iter().map(|x| x.p).collect();
-    let fdrs: Vec<f64> = adjust(&p_vals, Procedure::BenjaminiHochberg);
+    let fdrs: Vec<f64> = stat::adjust(&p_vals);
     let mut final_res = Vec::new();
     for (i, row) in partials.clone().into_iter().enumerate() {
         final_res.push(ORAResult {
