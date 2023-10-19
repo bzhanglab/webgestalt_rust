@@ -1,9 +1,9 @@
 use crate::readers::utils::Item;
 
+use ahash::AHashSet;
 use rand::prelude::SliceRandom;
 use rand::SeedableRng;
 use rayon::prelude::*;
-use rustc_hash::FxHashSet;
 use std::{
     iter,
     sync::{Arc, Mutex},
@@ -110,7 +110,7 @@ fn analyte_set_p(
     config: &GSEAConfig,
 ) -> (GSEAResult, Vec<f64>) {
     let permutations = permutations_vec.len();
-    let analyte_set = FxHashSet::from_iter(item.parts.iter());
+    let analyte_set = AHashSet::from_iter(item.parts.iter());
     let mut n_r: f64 = 0.0;
     let inverse_size_dif: f64 = 1.0 / ((analytes.len() - analyte_set.len()) as f64); // Inverse now
     let analyte_count = analytes.len();

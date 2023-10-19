@@ -1,6 +1,6 @@
 pub mod utils;
 use crate::methods::gsea::RankListItem;
-use rustc_hash::FxHashSet;
+use ahash::AHashSet;
 use std::{
     fs::File,
     io::{prelude::*, BufReader},
@@ -55,10 +55,10 @@ pub fn read_rank_file(path: String) -> Result<Vec<RankListItem>, Box<std::io::Er
     Ok(items)
 }
 
-pub fn read_single_list(path: String) -> FxHashSet<String> {
+pub fn read_single_list(path: String) -> AHashSet<String> {
     let file = File::open(path).expect("no such file");
     let buf = BufReader::new(file);
-    let mut h = rustc_hash::FxHashSet::default();
+    let mut h = AHashSet::default();
     let v: Vec<String> = buf
         .lines()
         .map(|l| l.expect("Could not parse line"))
@@ -73,7 +73,7 @@ pub fn read_ora_files(
     gmt_path: String,
     interest_path: String,
     ref_path: String,
-) -> (Vec<Item>, FxHashSet<String>, FxHashSet<String>) {
+) -> (Vec<Item>, AHashSet<String>, AHashSet<String>) {
     let file = File::open(gmt_path).unwrap();
     let mut rdr = csv::ReaderBuilder::new()
         .delimiter(b'\t') // TODO: Add option to use different delimeter
@@ -81,7 +81,7 @@ pub fn read_ora_files(
         .has_headers(false)
         .from_reader(file);
     let mut items: Vec<utils::Item> = Vec::new();
-    let mut annotated_genes: FxHashSet<String> = FxHashSet::default();
+    let mut annotated_genes: AHashSet<String> = AHashSet::default();
     for r in rdr.records() {
         let result = r
             .unwrap()
@@ -102,10 +102,10 @@ pub fn read_ora_files(
     (items, analyte_list, reference_list)
 }
 
-pub fn read_intersection_list(path: String, ref_list: &FxHashSet<String>) -> FxHashSet<String> {
+pub fn read_intersection_list(path: String, ref_list: &AHashSet<String>) -> AHashSet<String> {
     let file = File::open(path).expect("no such file");
     let buf = BufReader::new(file);
-    let mut h = rustc_hash::FxHashSet::default();
+    let mut h = AHashSet::default();
     let v: Vec<String> = buf
         .lines()
         .map(|l| l.expect("Could not parse line"))

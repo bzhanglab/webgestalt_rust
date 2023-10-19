@@ -1,4 +1,4 @@
-use rustc_hash::FxHashSet;
+use ahash::AHashSet;
 
 use super::{
     gsea::{GSEAConfig, RankListItem},
@@ -40,8 +40,8 @@ pub struct GSEAJob<'a> {
 
 pub struct ORAJob<'a> {
     pub gmt: &'a Vec<Item>,
-    pub interest_list: &'a FxHashSet<String>,
-    pub reference_list: &'a FxHashSet<String>,
+    pub interest_list: &'a AHashSet<String>,
+    pub reference_list: &'a AHashSet<String>,
     pub config: ORAConfig,
 }
 

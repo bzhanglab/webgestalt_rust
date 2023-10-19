@@ -1,6 +1,6 @@
 use crate::{readers::utils::Item, stat};
+use ahash::AHashSet;
 use rayon::prelude::*;
-use rustc_hash::FxHashSet;
 use statrs::distribution::{DiscreteCDF, Hypergeometric};
 use std::sync::{Arc, Mutex};
 
@@ -47,8 +47,8 @@ pub fn ora_p(m: i64, j: i64, n: i64, k: i64) -> f64 {
 /// Requires both the interest list and the reference list to be filtered.
 ///
 /// # Parameters
-/// - `interest_list` - A [`FxHashSet<String>`] of the interesting analytes
-/// - `reference` - A [`FxHashSet<String>`] of the reference list
+/// - `interest_list` - A [`AHashSet<String>`] of the interesting analytes
+/// - `reference` - A [`AHashSet<String>`] of the reference list
 /// - `gmt` - A [`Vec<Item>`] of the gmt file
 ///
 /// # Panics
@@ -59,8 +59,8 @@ pub fn ora_p(m: i64, j: i64, n: i64, k: i64) -> f64 {
 ///
 /// This function will return an error if .
 pub fn get_ora(
-    interest_list: &FxHashSet<String>,
-    reference: &FxHashSet<String>,
+    interest_list: &AHashSet<String>,
+    reference: &AHashSet<String>,
     gmt: Vec<Item>,
     config: ORAConfig,
 ) -> Vec<ORAResult> {
@@ -69,7 +69,7 @@ pub fn get_ora(
     let res = Arc::new(Mutex::new(Vec::new()));
     gmt.par_iter().for_each(|i| {
         let mut j: i64 = 0;
-        let mut enriched_parts: FxHashSet<String> = FxHashSet::default();
+        let mut enriched_parts: AHashSet<String> = AHashSet::default();
         let mut k: i64 = 0;
         for analyte in i.parts.iter() {
             if interest_list.contains(analyte) {

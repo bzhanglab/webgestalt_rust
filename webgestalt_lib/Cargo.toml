@@ -14,6 +14,7 @@ rand = { version = "0.8.5", features = ["small_rng"] }
 rayon = "1.8.0"
 rustc-hash = "1.1.0"
 statrs = "0.16.0"
+ahash = "0.8.3"
 
 [dev-dependencies]
 pretty_assertions = "1.4.0"
