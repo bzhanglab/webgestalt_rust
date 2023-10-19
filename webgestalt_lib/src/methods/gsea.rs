@@ -4,10 +4,7 @@ use ahash::AHashSet;
 use rand::prelude::SliceRandom;
 use rand::SeedableRng;
 use rayon::prelude::*;
-use std::{
-    iter,
-    sync::{Arc, Mutex},
-};
+use std::sync::{Arc, Mutex};
 
 /// Parameters for GSEA
 pub struct GSEAConfig {
