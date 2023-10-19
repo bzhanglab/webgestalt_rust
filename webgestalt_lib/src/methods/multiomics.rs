@@ -59,4 +59,7 @@ pub fn multiomic_analysis(
     analysis_type: AnalysisType,
     method: MultiOmicsMethod,
 ) -> () {
+    if let MultiOmicsMethod::Meta(meta_method) = method {
+    } else {
+    }
 }

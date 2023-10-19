@@ -132,7 +132,7 @@ fn analyte_set_p(
                 es: 0.0,
                 overlap,
                 leading_edge: 0,
-                running_sum: iter::repeat(0.0).take(analyte_count).collect(),
+                running_sum: Vec::new(),
             },
             Vec::new(),
         )
