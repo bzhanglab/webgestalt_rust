@@ -149,15 +149,42 @@ fn normalize(list: &mut Vec<RankListItem>, method: NormalizationMethod) -> Vec<R
                     .partial_cmp(&a.rank)
                     .expect("Invalid float comparison during comparison")
             });
-            let median = list[list.len() / 2].rank;
+            let median = list.len() / 2;
             let mut final_list: Vec<RankListItem> = Vec::new();
-            for item in list {
+            for (i, item) in list.iter().enumerate() {
                 final_list.push(RankListItem {
                     analyte: item.analyte.clone(),
-                    rank: item.rank / median,
+                    rank: i as f64 / median as f64,
                 });
             }
             final_list
         }
     }
+}
+
+pub fn combine_gmts(gmts: &Vec<Vec<Item>>) -> Vec<Item> {
+    let mut combined_parts: AHashMap<String, Vec<String>> = AHashMap::default();
+    let mut combined_urls: AHashMap<String, String> = AHashMap::default();
+    for gmt in gmts {
+        for item in gmt {
+            if combined_parts.contains_key(&item.id) {
+                combined_parts
+                    .get_mut(&item.id)
+                    .unwrap()
+                    .extend(item.parts.clone());
+            } else {
+                combined_parts.insert(item.id.clone(), item.parts.clone());
+                combined_urls.insert(item.id.clone(), item.url.clone());
+            }
+        }
+    }
+    let mut final_gmt: Vec<Item> = Vec::new();
+    for (key, parts) in combined_parts {
+        final_gmt.push(Item {
+            id: key.clone(),
+            parts,
+            url: combined_urls[&key].clone(),
+        })
+    }
+    final_gmt
 }
