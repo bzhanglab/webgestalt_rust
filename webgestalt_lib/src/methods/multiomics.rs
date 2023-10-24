@@ -1,4 +1,4 @@
-use rustc_hash::FxHashSet;
+use ahash::{AHashMap, AHashSet};
 
 use super::{
     gsea::{GSEAConfig, RankListItem},
@@ -40,9 +40,15 @@ pub struct GSEAJob<'a> {
 
 pub struct ORAJob<'a> {
     pub gmt: &'a Vec<Item>,
-    pub interest_list: &'a FxHashSet<String>,
-    pub reference_list: &'a FxHashSet<String>,
+    pub interest_list: &'a AHashSet<String>,
+    pub reference_list: &'a AHashSet<String>,
     pub config: ORAConfig,
+}
+
+#[derive(Copy, Clone)]
+pub enum NormalizationMethod {
+    MedianRatio,
+    None,
 }
 
 /// Run a multiomics analysis, using iehter the max/mean median ratio or a typical meta analysis
@@ -59,4 +65,99 @@ pub fn multiomic_analysis(
     analysis_type: AnalysisType,
     method: MultiOmicsMethod,
 ) -> () {
+    if let MultiOmicsMethod::Meta(meta_method) = method {
+    } else {
+    }
+}
+
+pub fn combine_lists(
+    lists: Vec<Vec<RankListItem>>,
+    combination_method: MultiOmicsMethod,
+    normalization_method: NormalizationMethod,
+) -> Vec<RankListItem> {
+    match combination_method {
+        MultiOmicsMethod::Max => max_combine(lists, normalization_method),
+        MultiOmicsMethod::Mean => mean_combine(lists, normalization_method),
+        MultiOmicsMethod::Meta(_x) => panic!("Lists can not be combine for meta-analysis"),
+    }
+}
+
+fn max_combine(
+    lists: Vec<Vec<RankListItem>>,
+    normalization_method: NormalizationMethod,
+) -> Vec<RankListItem> {
+    let normalized_lists: Vec<Vec<RankListItem>> = lists
+        .into_iter()
+        .map(|mut list| normalize(&mut list, normalization_method))
+        .collect();
+    let mut batches: AHashMap<String, f64> = AHashMap::default();
+    for list in normalized_lists {
+        for item in list {
+            if let Some(val) = batches.get_mut(&item.analyte) {
+                if item.rank > *val {
+                    *val = item.rank;
+                }
+            } else {
+                batches.insert(item.analyte, item.rank);
+            }
+        }
+    }
+    let mut final_list: Vec<RankListItem> = Vec::new();
+    for key in batches.keys() {
+        final_list.push(RankListItem {
+            analyte: key.clone(),
+            rank: batches[key],
+        });
+    }
+    final_list
+}
+
+fn mean_combine(
+    lists: Vec<Vec<RankListItem>>,
+    normalization_method: NormalizationMethod,
+) -> Vec<RankListItem> {
+    let normalized_lists: Vec<Vec<RankListItem>> = lists
+        .into_iter()
+        .map(|mut list| normalize(&mut list, normalization_method))
+        .collect();
+    let mut batches: AHashMap<String, Vec<f64>> = AHashMap::default();
+    for list in normalized_lists {
+        for item in list {
+            if let Some(val) = batches.get_mut(&item.analyte) {
+                val.push(item.rank);
+            } else {
+                batches.insert(item.analyte, vec![item.rank]);
+            }
+        }
+    }
+    let mut final_list: Vec<RankListItem> = Vec::new();
+    for key in batches.keys() {
+        final_list.push(RankListItem {
+            analyte: key.clone(),
+            rank: batches[key].iter().sum::<f64>() / (batches[key].len() as f64),
+        })
+    }
+    final_list
+}
+
+fn normalize(list: &mut Vec<RankListItem>, method: NormalizationMethod) -> Vec<RankListItem> {
+    match method {
+        NormalizationMethod::None => list.clone(),
+        NormalizationMethod::MedianRatio => {
+            list.sort_by(|a, b| {
+                b.rank
+                    .partial_cmp(&a.rank)
+                    .expect("Invalid float comparison during comparison")
+            });
+            let median = list[list.len() / 2].rank;
+            let mut final_list: Vec<RankListItem> = Vec::new();
+            for item in list {
+                final_list.push(RankListItem {
+                    analyte: item.analyte.clone(),
+                    rank: item.rank / median,
+                });
+            }
+            final_list
+        }
+    }
 }

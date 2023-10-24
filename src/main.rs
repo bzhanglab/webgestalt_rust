@@ -1,3 +1,4 @@
+use std::fmt::format;
 use std::io::{BufReader, Write};
 use std::{fs::File, time::Instant};
 
@@ -127,10 +128,10 @@ fn main() {
                 );
                 return;
             }
-            let gene_list =
-                webgestalt_lib::readers::read_rank_file(gsea_args.rnk.clone().unwrap()).unwrap();
-            let gmt =
-                webgestalt_lib::readers::read_gmt_file(gsea_args.gmt.clone().unwrap()).unwrap();
+            let gene_list = webgestalt_lib::readers::read_rank_file(gsea_args.rnk.clone().unwrap())
+                .expect(format!("File {} not found", gsea_args.rnk.clone().unwrap()).as_str());
+            let gmt = webgestalt_lib::readers::read_gmt_file(gsea_args.gmt.clone().unwrap())
+                .expect(format!("File {} not found", gsea_args.gmt.clone().unwrap()).as_str());
             webgestalt_lib::methods::gsea::gsea(gene_list, gmt, GSEAConfig::default(), None);
             println!("Done with GSEA");
         }
