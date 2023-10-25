@@ -1,14 +1,18 @@
+use std::error::Error;
 use std::fmt::format;
 use std::io::{BufReader, Write};
+use std::str::FromStr;
 use std::{fs::File, time::Instant};
 
 use bincode::deserialize_from;
 
-use clap::Subcommand;
 use clap::{Args, Parser};
+use clap::{Subcommand, ValueEnum};
 use owo_colors::{OwoColorize, Stream::Stdout, Style};
 use webgestalt_lib::methods::gsea::GSEAConfig;
+use webgestalt_lib::methods::multiomics::NormalizationMethod;
 use webgestalt_lib::methods::ora::ORAConfig;
+use webgestalt_lib::readers::read_rank_file;
 
 /// WebGestalt CLI.
 /// ORA and GSEA enrichment tool.
@@ -30,6 +34,10 @@ enum Commands {
     Gsea(GseaArgs),
     /// Run ORA using the provided files
     Ora(ORAArgs),
+    /// Run a test
+    Test,
+    /// Combine multiple files into a single file
+    Combine(CombineArgs),
 }
 
 #[derive(Debug, Args)]
@@ -63,6 +71,39 @@ struct ORAArgs {
     interest: Option<String>,
     /// Path the file containing the reference list
     reference: Option<String>,
+}
+
+#[derive(Args)]
+struct CombineArgs {
+    #[command(subcommand)]
+    combine_type: Option<CombineType>,
+}
+
+#[derive(Subcommand)]
+enum CombineType {
+    Gmt(CombineGmtArgs),
+    List(CombineListArgs),
+}
+
+#[derive(Args)]
+struct CombineGmtArgs {
+    out: Option<String>,
+    /// Paths to the files to combine
+    files: Vec<String>,
+}
+#[derive(ValueEnum, Clone)]
+enum NormMethods {
+    MedianRank,
+    MedianValue,
+    MeanValue,
+    None,
+}
+
+#[derive(Args)]
+struct CombineListArgs {
+    normalization: Option<NormMethods>,
+    out: Option<String>,
+    files: Vec<String>,
 }
 
 fn main() {
@@ -129,9 +170,13 @@ fn main() {
                 return;
             }
             let gene_list = webgestalt_lib::readers::read_rank_file(gsea_args.rnk.clone().unwrap())
-                .expect(format!("File {} not found", gsea_args.rnk.clone().unwrap()).as_str());
+                .unwrap_or_else(|_| {
+                    panic!("File {} not found", gsea_args.rnk.clone().unwrap());
+                });
             let gmt = webgestalt_lib::readers::read_gmt_file(gsea_args.gmt.clone().unwrap())
-                .expect(format!("File {} not found", gsea_args.gmt.clone().unwrap()).as_str());
+                .unwrap_or_else(|_| {
+                    panic!("File {} not found", gsea_args.gmt.clone().unwrap());
+                });
             webgestalt_lib::methods::gsea::gsea(gene_list, gmt, GSEAConfig::default(), None);
             println!("Done with GSEA");
         }
@@ -172,8 +217,44 @@ fn main() {
                 res.len()
             );
         }
+        Some(Commands::Test) => {
+            let list1 = read_rank_file("gene.rnk".to_string()).unwrap();
+            let list2 = read_rank_file("protein.rnk".to_string()).unwrap();
+            let list3 = read_rank_file("metabolite.rnk".to_string()).unwrap();
+            let lists = vec![list1, list2, list3];
+            // let gmt1 = webgestalt_lib::readers::read_gmt_file("gene.gmt".to_string()).unwrap();
+            // let gmt2 =
+            //     webgestalt_lib::readers::read_gmt_file("metabolite.gmt".to_string()).unwrap();
+            // let combined_gmt = webgestalt_lib::methods::multiomics::combine_gmts(&vec![gmt1, gmt2]);
+            // let mut file = File::create("combined.gmt").unwrap();
+            // for row in combined_gmt {
+            //     writeln!(file, "{}\t{}\t{}", row.id, row.url, row.parts.join("\t")).unwrap();
+            // }
+            let mut combined_list = webgestalt_lib::methods::multiomics::combine_lists(
+                lists,
+                webgestalt_lib::methods::multiomics::MultiOmicsMethod::Mean,
+                webgestalt_lib::methods::multiomics::NormalizationMethod::MeanValue,
+            );
+            combined_list.sort_by(|a, b| b.rank.partial_cmp(&a.rank).unwrap());
+            let mut file = File::create("combined.rnk").unwrap();
+            for row in combined_list {
+                writeln!(file, "{}\t{}", row.analyte, row.rank).unwrap();
+            }
+        }
+        Some(Commands::Combine(args)) => match &args.combine_type {
+            Some(CombineType::Gmt(files)) => {}
+            Some(CombineType::List(files)) => {
+                let mut lists = Vec::new();
+                for file in files.files.iter() {
+                    lists.push(read_rank_file(file.clone()).unwrap());
+                }
+            }
+            _ => {
+                panic!("Please select a valid combine type");
+            }
+        },
         _ => {
-            println!("Please select a command. Run --help for options.")
+            todo!("Please select a valid command. Run --help for options.")
         }
     }
 }
