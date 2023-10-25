@@ -3,7 +3,19 @@ struct Carrier {
     original_order: usize,
 }
 
-pub fn adjust(p_vals: &[f64]) -> Vec<f64> {
+pub enum AdjustmentMethod {
+    BH,
+    None,
+}
+
+pub fn adjust(p_vals: &[f64], method: AdjustmentMethod) -> Vec<f64> {
+    match method {
+        AdjustmentMethod::BH => benjamini_hochberg(p_vals),
+        AdjustmentMethod::None => p_vals.to_vec(),
+    }
+}
+
+fn benjamini_hochberg(p_vals: &[f64]) -> Vec<f64> {
     let mut carriers: Vec<Carrier> = p_vals
         .iter()
         .enumerate()

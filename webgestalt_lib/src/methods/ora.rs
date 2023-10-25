@@ -8,6 +8,7 @@ pub struct ORAConfig {
     pub min_overlap: i64,
     pub min_set_size: usize,
     pub max_set_size: usize,
+    pub fdr_method: stat::AdjustmentMethod,
 }
 
 impl Default for ORAConfig {
@@ -16,6 +17,7 @@ impl Default for ORAConfig {
             min_overlap: 5,
             min_set_size: 5,
             max_set_size: 500,
+            fdr_method: stat::AdjustmentMethod::BH,
         }
     }
 }
@@ -90,7 +92,7 @@ pub fn get_ora(
     });
     let partials = res.lock().unwrap();
     let p_vals: Vec<f64> = partials.iter().map(|x| x.p).collect();
-    let fdrs: Vec<f64> = stat::adjust(&p_vals);
+    let fdrs: Vec<f64> = stat::adjust(&p_vals, config.fdr_method);
     let mut final_res = Vec::new();
     for (i, row) in partials.clone().into_iter().enumerate() {
         final_res.push(ORAResult {
