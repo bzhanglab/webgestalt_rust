@@ -50,6 +50,7 @@ pub enum NormalizationMethod {
     MedianRank,
     MedianValue,
     MeanValue,
+    None,
 }
 
 /// Run a multiomics analysis, using iehter the max/mean median ratio or a typical meta analysis
