@@ -1,4 +1,3 @@
-use std::error::Error;
 use std::fmt::format;
 use std::io::{BufReader, Write};
 use std::str::FromStr;
