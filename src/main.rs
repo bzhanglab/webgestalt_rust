@@ -1,15 +1,10 @@
-use std::fmt::format;
-use std::io::{BufReader, Write};
-use std::str::FromStr;
-use std::{fs::File, time::Instant};
-
 use bincode::deserialize_from;
-
 use clap::{Args, Parser};
 use clap::{Subcommand, ValueEnum};
 use owo_colors::{OwoColorize, Stream::Stdout, Style};
+use std::io::{BufReader, Write};
+use std::{fs::File, time::Instant};
 use webgestalt_lib::methods::gsea::GSEAConfig;
-use webgestalt_lib::methods::multiomics::NormalizationMethod;
 use webgestalt_lib::methods::ora::ORAConfig;
 use webgestalt_lib::readers::read_rank_file;
 
