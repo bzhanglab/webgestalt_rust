@@ -73,8 +73,3 @@ impl CustomError for StatisticsError {
         format!("Statstical Error: {}.", error_msg)
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-}

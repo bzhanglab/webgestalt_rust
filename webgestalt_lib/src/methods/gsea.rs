@@ -7,6 +7,7 @@ use rayon::prelude::*;
 use std::sync::{Arc, Mutex};
 
 /// Parameters for GSEA
+#[derive(Clone)]
 pub struct GSEAConfig {
     /// Power to raise each rank during the enrichment scoring
     pub p: f64,

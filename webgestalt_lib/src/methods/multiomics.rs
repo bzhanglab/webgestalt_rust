@@ -1,16 +1,17 @@
 use ahash::{AHashMap, AHashSet};
+use statrs::distribution::{ContinuousCDF, Normal};
 
 use super::{
-    gsea::{GSEAConfig, RankListItem},
+    gsea::{FullGSEAResult, GSEAConfig, RankListItem},
     ora::ORAConfig,
 };
-use crate::readers::utils::Item;
+use crate::{methods::gsea::gsea, readers::utils::Item};
 
 pub enum MultiOmicsMethod {
     /// Get the max median ratio of the analyte from any list
-    Max,
+    Max(NormalizationMethod),
     /// Get the average median ratio of analyte from all the lists
-    Mean,
+    Mean(NormalizationMethod),
     /// Run each list separately and calculate a meta-p value
     Meta(MetaAnalysisMethod),
 }
@@ -25,11 +26,6 @@ pub enum AnalysisType {
     GSEA,
     /// Over-representation Analysis
     ORA,
-}
-
-pub enum AnalysisJob<'a> {
-    GSEAJob(GSEAJob<'a>),
-    ORAJob(ORAJob<'a>),
 }
 
 pub struct GSEAJob<'a> {
@@ -62,25 +58,61 @@ pub enum NormalizationMethod {
 /// - `analysis_type` - A [`AnalysisType`] enum of the analysis type (GSEA, ORA, or NTA) to run
 /// - `method` - A [`MultiOmicsMethod`] enum detailing the analysis method to combine the runs
 /// together (meta-analysis, mean median ration, or max median ratio).
-pub fn multiomic_analysis(
-    _jobs: Vec<AnalysisJob>,
-    _analysis_type: AnalysisType,
-    method: MultiOmicsMethod,
-) {
+// pub fn multiomic_analysis(
+//     jobs: Vec<AnalysisJob>,
+//     analysis_type: AnalysisType,
+//     method: MultiOmicsMethod,
+// ) {
+//     if let MultiOmicsMethod::Meta(meta_method) = method {
+//         match meta_method {
+//             MetaAnalysisMethod::Stouffer => (),
+//             MetaAnalysisMethod::Fisher => todo!("Fisher method not implemented yet!"),
+//         }
+//     } else {
+//         match analysis_type {
+//             AnalysisType::GSEA => {}
+//             AnalysisType::ORA => {}
+//         }
+//     }
+// }
+
+pub fn multiomic_gsea(jobs: Vec<GSEAJob>, method: MultiOmicsMethod) -> Vec<Vec<FullGSEAResult>> {
     if let MultiOmicsMethod::Meta(meta_method) = method {
+        let mut results: Vec<Vec<FullGSEAResult>> = Vec::new();
+        for job in jobs {
+            results.push(gsea(
+                job.rank_list.to_vec(),
+                job.gmt.to_vec(),
+                job.config,
+                None,
+            ))
+        }
+        match meta_method {
+            MetaAnalysisMethod::Stouffer => Vec::new(),
+            MetaAnalysisMethod::Fisher => todo!("Fisher method not implemented yet!"),
+        }
     } else {
+        let lists = jobs.iter().map(|x| x.rank_list.clone()).collect();
+        let combined_list = combine_lists(lists, method);
+        let gmts = jobs.iter().map(|x| x.gmt.clone()).collect();
+        let combined_gmt = combine_gmts(&gmts);
+        vec![gsea(
+            combined_list,
+            combined_gmt,
+            jobs.first().unwrap().config.clone(),
+            None,
+        )]
     }
 }
 
 pub fn combine_lists(
     lists: Vec<Vec<RankListItem>>,
     combination_method: MultiOmicsMethod,
-    normalization_method: NormalizationMethod,
 ) -> Vec<RankListItem> {
     match combination_method {
-        MultiOmicsMethod::Max => max_combine(lists, normalization_method),
-        MultiOmicsMethod::Mean => mean_combine(lists, normalization_method),
-        MultiOmicsMethod::Meta(_x) => panic!("Lists can not be combine for meta-analysis"),
+        MultiOmicsMethod::Max(normalization_method) => max_combine(lists, normalization_method),
+        MultiOmicsMethod::Mean(normalization_method) => mean_combine(lists, normalization_method),
+        MultiOmicsMethod::Meta(_) => panic!("Lists can not be combined for meta-analysis"),
     }
 }
 
@@ -223,4 +255,52 @@ pub fn combine_gmts(gmts: &Vec<Vec<Item>>) -> Vec<Item> {
         })
     }
     final_gmt
+}
+
+/// Calculates meta-p values using the Stouffer method ([DOI:10.1037/h0051438](https://doi.org/10.1037/h0051438)) of `vals`
+///
+/// # Arguments
+/// - `val` - `Vec<f64>` of p-values to combine
+///
+/// # Examples
+///
+/// ```rust
+/// use webgestalt_lib::methods::multiomics::stouffer;
+/// let vals: Vec<f64> = vec![0.1, 0.01, 0.11, 0.23];
+/// let metap: f64 = stouffer(vals);
+/// ```
+pub fn stouffer(vals: Vec<f64>) -> f64 {
+    let n = Normal::new(0.0, 1.0).unwrap();
+    let k = vals.len();
+    n.cdf(vals.iter().map(|x| n.inverse_cdf(*x)).sum::<f64>() / f64::sqrt(k as f64))
+}
+
+fn stouffer_with_normal(vals: &Vec<f64>, normal: Normal) -> f64 {
+    let k = vals.len();
+    normal.cdf(vals.iter().map(|x| normal.inverse_cdf(*x)).sum::<f64>() / f64::sqrt(k as f64))
+}
+
+/// Calculates meta-p values using the Stouffer weighted method ([10.1214/aoms/1177698861](https://doi.org/10.1214/aoms/1177698861)) of `vals` with weights in `weights`
+///
+/// # Arguments
+/// - `val` - [`Vec<f64>`] of p-values to combine
+/// - `weights` - [`Vec<f64>`] of weights corresponding to each p-value
+///
+/// # Examples
+///
+/// ```rust
+/// use webgestalt_lib::methods::multiomics::stouffer_weighted;
+/// let vals: Vec<f64> = vec![0.1, 0.01, 0.11, 0.23];
+/// let weights: Vec<f64> = vec![0.1, 0.2, 0.3, 0.4];
+/// let metap: f64 = stouffer_weighted(vals, weights);
+/// ```
+pub fn stouffer_weighted(vals: Vec<f64>, weights: Vec<f64>) -> f64 {
+    let n = Normal::new(0.0, 1.0).unwrap();
+    n.cdf(
+        vals.iter()
+            .enumerate()
+            .map(|(i, x)| weights[i] * n.inverse_cdf(*x))
+            .sum::<f64>()
+            / f64::sqrt(weights.iter().map(|x| x * x).sum::<f64>()),
+    )
 }
