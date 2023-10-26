@@ -5,8 +5,10 @@ use owo_colors::{OwoColorize, Stream::Stdout, Style};
 use std::io::{BufReader, Write};
 use std::{fs::File, time::Instant};
 use webgestalt_lib::methods::gsea::GSEAConfig;
+use webgestalt_lib::methods::multiomics::{combine_gmts, MultiOmicsMethod, NormalizationMethod};
 use webgestalt_lib::methods::ora::ORAConfig;
-use webgestalt_lib::readers::read_rank_file;
+use webgestalt_lib::readers::utils::Item;
+use webgestalt_lib::readers::{read_gmt_file, read_rank_file};
 use webgestalt_lib::{MalformedError, WebGestaltError};
 
 /// WebGestalt CLI.
@@ -93,9 +95,15 @@ enum NormMethods {
     MeanValue,
     None,
 }
+#[derive(ValueEnum, Clone)]
+enum CombinationMethods {
+    Max,
+    Mean,
+}
 
 #[derive(Args)]
 struct CombineListArgs {
+    combination: Option<CombinationMethods>,
     normalization: Option<NormMethods>,
     out: Option<String>,
     files: Vec<String>,
@@ -214,11 +222,68 @@ fn main() {
         }
         Some(Commands::Test) => will_err(1).unwrap_or_else(|x| println!("{}", x)),
         Some(Commands::Combine(args)) => match &args.combine_type {
-            Some(CombineType::Gmt(files)) => {}
-            Some(CombineType::List(files)) => {
+            Some(CombineType::Gmt(gmt_args)) => {
+                let style = Style::new().blue().bold();
+                println!(
+                    "{}: READING GMTS",
+                    "INFO".if_supports_color(Stdout, |text| text.style(style))
+                );
+                let mut gmts: Vec<Vec<Item>> = Vec::new();
+                let mut tot_length: usize = 0;
+                for path in gmt_args.files.clone() {
+                    let gmt = read_gmt_file(path).unwrap();
+                    tot_length += gmt.len();
+                    gmts.push(gmt);
+                }
+                let combined_gmt = combine_gmts(&gmts);
+                println!(
+                    "Found {} overlapping sets out of {}",
+                    tot_length - combined_gmt.len(),
+                    combined_gmt.len()
+                );
+                println!(
+                    "{}: CREATING COMBINED GMT AT {}",
+                    "INFO".if_supports_color(Stdout, |text| text.style(style)),
+                    gmt_args.out.clone().unwrap()
+                );
+                let mut file = File::create(gmt_args.out.clone().unwrap()).unwrap();
+                for row in combined_gmt {
+                    writeln!(file, "{}\t{}\t{}", row.id, row.url, row.parts.join("\t")).unwrap();
+                }
+            }
+            Some(CombineType::List(ora_args)) => {
+                let style = Style::new().blue().bold();
+                println!(
+                    "{}: READING LISTS",
+                    "INFO".if_supports_color(Stdout, |text| text.style(style))
+                );
                 let mut lists = Vec::new();
-                for file in files.files.iter() {
+                for file in ora_args.files.iter() {
                     lists.push(read_rank_file(file.clone()).unwrap());
+                }
+                let norm_method: NormalizationMethod = match ora_args.normalization {
+                    Some(NormMethods::None) => NormalizationMethod::None,
+                    Some(NormMethods::MeanValue) => NormalizationMethod::MeanValue,
+                    Some(NormMethods::MedianRank) => NormalizationMethod::MedianRank,
+                    Some(NormMethods::MedianValue) => NormalizationMethod::MedianValue,
+                    None => panic!("No normalization method chosen."),
+                };
+                let method: MultiOmicsMethod = match ora_args.combination {
+                    Some(CombinationMethods::Mean) => MultiOmicsMethod::Mean(norm_method),
+                    Some(CombinationMethods::Max) => MultiOmicsMethod::Max(norm_method),
+                    None => panic!("No combination method chosen."),
+                };
+                let mut combined_list =
+                    webgestalt_lib::methods::multiomics::combine_lists(lists, method);
+                combined_list.sort_by(|a, b| b.rank.partial_cmp(&a.rank).unwrap());
+                let mut file = File::create(ora_args.out.clone().unwrap()).unwrap();
+                println!(
+                    "{}: CREATING COMBINED LIST AT {}",
+                    "INFO".if_supports_color(Stdout, |text| text.style(style)),
+                    ora_args.out.clone().unwrap()
+                );
+                for row in combined_list {
+                    writeln!(file, "{}\t{}", row.analyte, row.rank).unwrap();
                 }
             }
             _ => {
@@ -226,7 +291,7 @@ fn main() {
             }
         },
         _ => {
-            todo!("Please select a valid command. Run --help for options.")
+            panic!("Please select a valid command. Run --help for options.")
         }
     }
 }
