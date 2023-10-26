@@ -7,6 +7,7 @@ use std::{fs::File, time::Instant};
 use webgestalt_lib::methods::gsea::GSEAConfig;
 use webgestalt_lib::methods::ora::ORAConfig;
 use webgestalt_lib::readers::read_rank_file;
+use webgestalt_lib::{MalformedError, WebGestaltError};
 
 /// WebGestalt CLI.
 /// ORA and GSEA enrichment tool.
@@ -211,30 +212,7 @@ fn main() {
                 res.len()
             );
         }
-        Some(Commands::Test) => {
-            let list1 = read_rank_file("gene.rnk".to_string()).unwrap();
-            let list2 = read_rank_file("protein.rnk".to_string()).unwrap();
-            let list3 = read_rank_file("metabolite.rnk".to_string()).unwrap();
-            let lists = vec![list1, list2, list3];
-            // let gmt1 = webgestalt_lib::readers::read_gmt_file("gene.gmt".to_string()).unwrap();
-            // let gmt2 =
-            //     webgestalt_lib::readers::read_gmt_file("metabolite.gmt".to_string()).unwrap();
-            // let combined_gmt = webgestalt_lib::methods::multiomics::combine_gmts(&vec![gmt1, gmt2]);
-            // let mut file = File::create("combined.gmt").unwrap();
-            // for row in combined_gmt {
-            //     writeln!(file, "{}\t{}\t{}", row.id, row.url, row.parts.join("\t")).unwrap();
-            // }
-            let mut combined_list = webgestalt_lib::methods::multiomics::combine_lists(
-                lists,
-                webgestalt_lib::methods::multiomics::MultiOmicsMethod::Mean,
-                webgestalt_lib::methods::multiomics::NormalizationMethod::MeanValue,
-            );
-            combined_list.sort_by(|a, b| b.rank.partial_cmp(&a.rank).unwrap());
-            let mut file = File::create("combined.rnk").unwrap();
-            for row in combined_list {
-                writeln!(file, "{}\t{}", row.analyte, row.rank).unwrap();
-            }
-        }
+        Some(Commands::Test) => will_err(1).unwrap_or_else(|x| println!("{}", x)),
         Some(Commands::Combine(args)) => match &args.combine_type {
             Some(CombineType::Gmt(files)) => {}
             Some(CombineType::List(files)) => {
@@ -287,4 +265,18 @@ fn benchmark() {
     }
     let mut ftsv = File::create("format_benchmarks.tsv").unwrap();
     writeln!(ftsv, "{}", whole_file.join("\n")).unwrap();
+}
+
+fn will_err(x: i32) -> Result<(), WebGestaltError> {
+    if x == 0 {
+        Ok(())
+    } else {
+        Err(WebGestaltError::MalformedFile(MalformedError {
+            path: String::from("ExamplePath.txt"),
+            kind: webgestalt_lib::MalformedErrorType::WrongFormat {
+                found: String::from("GMT"),
+                expected: String::from("rank"),
+            },
+        }))
+    }
 }

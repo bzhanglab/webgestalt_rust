@@ -62,12 +62,19 @@ impl GSEAResult {
 
 #[derive(Clone)]
 pub struct FullGSEAResult {
+    /// The set name
     pub set: String,
+    /// The statistical p-value
     pub p: f64,
+    /// The FDR value
     pub fdr: f64,
+    /// The enrichment score
     pub es: f64,
+    /// The normalized enrichment score
     pub nes: f64,
+    /// Leading edge count
     pub leading_edge: i32,
+    /// Running sum vector
     pub running_sum: Vec<f64>,
 }
 
@@ -276,6 +283,10 @@ fn enrichment_score(
 ///
 /// - `analyte_list` - [`Vec<RankListItem>`] of the rank list
 /// - `gmt` - [`Vec<Item>`] of gmt file
+///
+/// # Returns
+///
+/// Returns a [`Vec<FullGSEAResult>`] of the GSEA results
 pub fn gsea(
     mut analyte_list: Vec<RankListItem>,
     gmt: Vec<Item>,
@@ -359,6 +370,25 @@ pub fn gsea(
     final_gsea
 }
 
+/// Create index permutations for GSEA
+///
+/// # Parameters
+///
+/// - `permutations` - Number of permutations to create
+/// - `max` - Maximum index to permute
+///
+/// # Returns
+///
+/// Returns a [`Vec<Vec<usize>>`] of the permutations
+///
+/// # Examples
+///
+/// ```
+/// use webgestalt_lib::methods::gsea::make_permuations;
+/// let permutations = make_permuations(10, 100);
+/// assert_eq!(permutations.len(), 10);
+/// assert_eq!(permutations[0].len(), 100);
+/// ```
 pub fn make_permuations(permutations: i32, max: usize) -> Vec<Vec<usize>> {
     let mut temp_permutations: Vec<Vec<usize>> = Vec::new();
     let mut smallrng = rand::rngs::SmallRng::from_entropy();
