@@ -119,7 +119,7 @@ pub fn multiomic_gsea(jobs: Vec<GSEAJob>, method: MultiOmicsMethod) -> Vec<Vec<F
     }
 }
 
-pub fn multiomics_ora(jobs: Vec<ORAJob>, method: MultiOmicsMethod) {
+pub fn multiomic_ora(jobs: Vec<ORAJob>, method: MultiOmicsMethod) -> Vec<Vec<ORAResult>> {
     match method {
         MultiOmicsMethod::Meta(meta_method) => {
             let mut phash: AHashMap<String, Vec<f64>> = AHashMap::default();
@@ -165,6 +165,8 @@ pub fn multiomics_ora(jobs: Vec<ORAJob>, method: MultiOmicsMethod) {
                     }
                 }
             }
+            results.insert(0, final_result);
+            results
         }
         _ => {
             panic!("Multi-Omics ORA can only be run with meta-analysis");
