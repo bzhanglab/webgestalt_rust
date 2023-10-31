@@ -1,5 +1,5 @@
 use ahash::{AHashMap, AHashSet};
-use statrs::distribution::{ContinuousCDF, Normal};
+use statrs::distribution::{Continuous, ContinuousCDF, Normal};
 
 use super::{
     gsea::{FullGSEAResult, GSEAConfig, RankListItem},
@@ -54,43 +54,57 @@ pub enum NormalizationMethod {
 ///
 /// # Parameters
 ///
-/// - `jobs` - A [`Vec<AnalysisJob>`] containing all of the seperates 'jobs' or analysis to combine
-/// - `analysis_type` - A [`AnalysisType`] enum of the analysis type (GSEA, ORA, or NTA) to run
-/// - `method` - A [`MultiOmicsMethod`] enum detailing the analysis method to combine the runs
-/// together (meta-analysis, mean median ration, or max median ratio).
-// pub fn multiomic_analysis(
-//     jobs: Vec<AnalysisJob>,
-//     analysis_type: AnalysisType,
-//     method: MultiOmicsMethod,
-// ) {
-//     if let MultiOmicsMethod::Meta(meta_method) = method {
-//         match meta_method {
-//             MetaAnalysisMethod::Stouffer => (),
-//             MetaAnalysisMethod::Fisher => todo!("Fisher method not implemented yet!"),
-//         }
-//     } else {
-//         match analysis_type {
-//             AnalysisType::GSEA => {}
-//             AnalysisType::ORA => {}
-//         }
-//     }
-// }
-
+/// - `jobs` - A [`Vec<GSEAJob>`] containing all of the seperates 'jobs' or analysis to combine
+/// - `method` - A [`MultiOmicsMethod`] enum detailing the analysis method to combine the runs together (meta-analysis, mean median ration, or max median ratio).
+///
+/// # Returns
+///
+/// Returns a [`Vec<Vec<FullGSEAResult>>`] containing the results of each analysis. If the method was not meta-analysis, then the outer vector will only have one element.
+/// If the method was meta-analysis, then the first element will be the results of the meta-analysis, and the rest of the elements will be the results of each analysis run individually.
 pub fn multiomic_gsea(jobs: Vec<GSEAJob>, method: MultiOmicsMethod) -> Vec<Vec<FullGSEAResult>> {
     if let MultiOmicsMethod::Meta(meta_method) = method {
+        let mut phash: AHashMap<String, Vec<f64>> = AHashMap::default();
         let mut results: Vec<Vec<FullGSEAResult>> = Vec::new();
         for job in jobs {
-            results.push(gsea(
-                job.rank_list.to_vec(),
-                job.gmt.to_vec(),
-                job.config,
-                None,
-            ))
+            let res = gsea(job.rank_list.to_vec(), job.gmt.to_vec(), job.config, None);
+            for row in res.iter() {
+                let set = row.set.clone();
+                phash.entry(set).or_default().push(row.p);
+            }
+            results.push(res);
         }
+        let mut final_result: Vec<FullGSEAResult> = Vec::new();
         match meta_method {
-            MetaAnalysisMethod::Stouffer => Vec::new(),
-            MetaAnalysisMethod::Fisher => todo!("Fisher method not implemented yet!"),
+            MetaAnalysisMethod::Stouffer => {
+                let normal = Normal::new(0.0, 1.0).unwrap();
+                for set in phash.keys() {
+                    final_result.push(FullGSEAResult {
+                        set: set.clone(),
+                        p: stouffer_with_normal(&phash[set], &normal),
+                        fdr: 0.0,
+                        nes: 0.0,
+                        es: 0.0,
+                        running_sum: Vec::new(),
+                        leading_edge: 0,
+                    });
+                }
+            }
+            MetaAnalysisMethod::Fisher => {
+                for set in phash.keys() {
+                    final_result.push(FullGSEAResult {
+                        set: set.clone(),
+                        p: fisher(&phash[set]),
+                        fdr: 0.0,
+                        nes: 0.0,
+                        es: 0.0,
+                        running_sum: Vec::new(),
+                        leading_edge: 0,
+                    });
+                }
+            }
         }
+        results.insert(0, final_result);
+        results
     } else {
         let lists = jobs.iter().map(|x| x.rank_list.clone()).collect();
         let combined_list = combine_lists(lists, method);
@@ -205,7 +219,7 @@ fn normalize(list: &mut Vec<RankListItem>, method: NormalizationMethod) -> Vec<R
             for item in list.iter() {
                 final_list.push(RankListItem {
                     analyte: item.analyte.clone(),
-                    rank: (item.rank - min) / median,
+                    rank: (item.rank - min) / median + min / median,
                 });
             }
             final_list
@@ -222,7 +236,7 @@ fn normalize(list: &mut Vec<RankListItem>, method: NormalizationMethod) -> Vec<R
             for item in list.iter() {
                 final_list.push(RankListItem {
                     analyte: item.analyte.clone(),
-                    rank: (item.rank - min) / mean,
+                    rank: (item.rank - min) / mean + min / mean,
                 });
             }
             final_list
@@ -275,9 +289,16 @@ pub fn stouffer(vals: Vec<f64>) -> f64 {
     n.cdf(vals.iter().map(|x| n.inverse_cdf(*x)).sum::<f64>() / f64::sqrt(k as f64))
 }
 
-fn stouffer_with_normal(vals: &Vec<f64>, normal: Normal) -> f64 {
+fn stouffer_with_normal(vals: &Vec<f64>, normal: &Normal) -> f64 {
     let k = vals.len();
     normal.cdf(vals.iter().map(|x| normal.inverse_cdf(*x)).sum::<f64>() / f64::sqrt(k as f64))
+}
+
+pub fn fisher(vals: &Vec<f64>) -> f64 {
+    let k = vals.len();
+    let pt = -2.0 * vals.iter().map(|x| x.ln()).sum::<f64>();
+    let dist = statrs::distribution::ChiSquared::new(2_f64.powi(k as i32 - 1)).unwrap();
+    dist.pdf(pt)
 }
 
 /// Calculates meta-p values using the Stouffer weighted method ([10.1214/aoms/1177698861](https://doi.org/10.1214/aoms/1177698861)) of `vals` with weights in `weights`

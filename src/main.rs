@@ -88,6 +88,7 @@ struct CombineGmtArgs {
     /// Paths to the files to combine
     files: Vec<String>,
 }
+
 #[derive(ValueEnum, Clone)]
 enum NormMethods {
     MedianRank,
@@ -95,6 +96,7 @@ enum NormMethods {
     MeanValue,
     None,
 }
+
 #[derive(ValueEnum, Clone)]
 enum CombinationMethods {
     Max,
@@ -287,11 +289,11 @@ fn main() {
                 }
             }
             _ => {
-                panic!("Please select a valid combine type");
+                println!("Please select a valid combine type");
             }
         },
         _ => {
-            panic!("Please select a valid command. Run --help for options.")
+            println!("Please select a valid command. Run --help for options.")
         }
     }
 }

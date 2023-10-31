@@ -298,7 +298,7 @@ pub fn gsea(
     analyte_list.sort_by(|a, b| b.rank.partial_cmp(&a.rank).unwrap()); // sort list
     let (analytes, ranks) = RankListItem::to_vecs(analyte_list.clone()); // seperate into vectors
     let permutations: Vec<Vec<usize>> =
-        provided_permutations.unwrap_or(make_permuations(config.permutations, analytes.len()));
+        provided_permutations.unwrap_or(make_permutations(config.permutations, analytes.len()));
     let all_nes = Arc::new(Mutex::new(Vec::new()));
     let set_nes = Arc::new(Mutex::new(Vec::new()));
     let all_res = Arc::new(Mutex::new(Vec::new()));
@@ -385,12 +385,12 @@ pub fn gsea(
 /// # Examples
 ///
 /// ```
-/// use webgestalt_lib::methods::gsea::make_permuations;
-/// let permutations = make_permuations(10, 100);
+/// use webgestalt_lib::methods::gsea::make_permutations;
+/// let permutations = make_permutations(10, 100);
 /// assert_eq!(permutations.len(), 10);
 /// assert_eq!(permutations[0].len(), 100);
 /// ```
-pub fn make_permuations(permutations: i32, max: usize) -> Vec<Vec<usize>> {
+pub fn make_permutations(permutations: i32, max: usize) -> Vec<Vec<usize>> {
     let mut temp_permutations: Vec<Vec<usize>> = Vec::new();
     let mut smallrng = rand::rngs::SmallRng::from_entropy();
     (0..permutations).for_each(|_i| {
