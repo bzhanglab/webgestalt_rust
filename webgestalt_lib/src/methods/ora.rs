@@ -4,6 +4,7 @@ use rayon::prelude::*;
 use statrs::distribution::{DiscreteCDF, Hypergeometric};
 use std::sync::{Arc, Mutex};
 
+#[derive(Clone)]
 pub struct ORAConfig {
     pub min_overlap: i64,
     pub min_set_size: usize,

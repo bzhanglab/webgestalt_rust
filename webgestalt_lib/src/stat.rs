@@ -3,6 +3,7 @@ struct Carrier {
     original_order: usize,
 }
 
+#[derive(Clone)]
 pub enum AdjustmentMethod {
     BH,
     None,
