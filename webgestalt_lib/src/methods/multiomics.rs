@@ -3,7 +3,7 @@ use statrs::distribution::{Continuous, ContinuousCDF, Normal};
 
 use super::{
     gsea::{FullGSEAResult, GSEAConfig, RankListItem},
-    ora::ORAConfig,
+    ora::{get_ora, ORAConfig, ORAResult},
 };
 use crate::{methods::gsea::gsea, readers::utils::Item};
 
@@ -116,6 +116,59 @@ pub fn multiomic_gsea(jobs: Vec<GSEAJob>, method: MultiOmicsMethod) -> Vec<Vec<F
             jobs.first().unwrap().config.clone(),
             None,
         )]
+    }
+}
+
+pub fn multiomics_ora(jobs: Vec<ORAJob>, method: MultiOmicsMethod) {
+    match method {
+        MultiOmicsMethod::Meta(meta_method) => {
+            let mut phash: AHashMap<String, Vec<f64>> = AHashMap::default();
+            let mut results: Vec<Vec<ORAResult>> = Vec::new();
+            for job in jobs {
+                let res = get_ora(
+                    job.interest_list,
+                    job.reference_list,
+                    job.gmt.to_vec(),
+                    job.config,
+                );
+                for row in res.iter() {
+                    let set = row.set.clone();
+                    phash.entry(set).or_default().push(row.p);
+                }
+                results.push(res);
+            }
+            let mut final_result: Vec<ORAResult> = Vec::new();
+            match meta_method {
+                MetaAnalysisMethod::Stouffer => {
+                    let normal = Normal::new(0.0, 1.0).unwrap();
+                    for set in phash.keys() {
+                        final_result.push(ORAResult {
+                            set: set.clone(),
+                            p: stouffer_with_normal(&phash[set], &normal),
+                            fdr: 0.0,
+                            overlap: 0,
+                            expected: 0.0,
+                            enrichment_ratio: 0.0,
+                        });
+                    }
+                }
+                MetaAnalysisMethod::Fisher => {
+                    for set in phash.keys() {
+                        final_result.push(ORAResult {
+                            set: set.clone(),
+                            p: fisher(&phash[set]),
+                            fdr: 0.0,
+                            overlap: 0,
+                            expected: 0.0,
+                            enrichment_ratio: 0.0,
+                        });
+                    }
+                }
+            }
+        }
+        _ => {
+            panic!("Multi-Omics ORA can only be run with meta-analysis");
+        }
     }
 }
 
