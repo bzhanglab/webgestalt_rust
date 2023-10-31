@@ -18,3 +18,5 @@ interest.txt
 latest.gmt
 ref.txt
 target_symbols.txt
+/*.gmt
+/*.rnk

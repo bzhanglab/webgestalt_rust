@@ -2,7 +2,7 @@
 
 [![Rust](https://github.com/bzhanglab/webgestalt_rust/actions/workflows/rust.yml/badge.svg?branch=master)](https://github.com/bzhanglab/webgestalt_rust/actions/workflows/rust.yml)
 
-Rust implementation of [WebGestaltR](https://github.com/bzhanglab/webgestaltr). 
+Rust implementation of [WebGestaltR](https://github.com/bzhanglab/webgestaltr).
 
 ## Install
 
