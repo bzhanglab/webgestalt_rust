@@ -28,16 +28,16 @@ pub enum AnalysisType {
     ORA,
 }
 
-pub struct GSEAJob<'a> {
-    pub gmt: &'a Vec<Item>,
-    pub rank_list: &'a Vec<RankListItem>,
+pub struct GSEAJob {
+    pub gmt: Vec<Item>,
+    pub rank_list: Vec<RankListItem>,
     pub config: GSEAConfig,
 }
 
-pub struct ORAJob<'a> {
-    pub gmt: &'a Vec<Item>,
-    pub interest_list: &'a AHashSet<String>,
-    pub reference_list: &'a AHashSet<String>,
+pub struct ORAJob {
+    pub gmt: Vec<Item>,
+    pub interest_list: AHashSet<String>,
+    pub reference_list: AHashSet<String>,
     pub config: ORAConfig,
 }
 
@@ -66,7 +66,7 @@ pub fn multiomic_gsea(jobs: Vec<GSEAJob>, method: MultiOmicsMethod) -> Vec<Vec<F
         let mut phash: AHashMap<String, Vec<f64>> = AHashMap::default();
         let mut results: Vec<Vec<FullGSEAResult>> = Vec::new();
         for job in jobs {
-            let res = gsea(job.rank_list.to_vec(), job.gmt.to_vec(), job.config, None);
+            let res = gsea(job.rank_list, job.gmt, job.config, None);
             for row in res.iter() {
                 let set = row.set.clone();
                 phash.entry(set).or_default().push(row.p);
@@ -125,12 +125,7 @@ pub fn multiomic_ora(jobs: Vec<ORAJob>, method: MultiOmicsMethod) -> Vec<Vec<ORA
             let mut phash: AHashMap<String, Vec<f64>> = AHashMap::default();
             let mut results: Vec<Vec<ORAResult>> = Vec::new();
             for job in jobs {
-                let res = get_ora(
-                    job.interest_list,
-                    job.reference_list,
-                    job.gmt.to_vec(),
-                    job.config,
-                );
+                let res = get_ora(&job.interest_list, &job.reference_list, job.gmt, job.config);
                 for row in res.iter() {
                     let set = row.set.clone();
                     phash.entry(set).or_default().push(row.p);
