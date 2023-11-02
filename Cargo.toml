@@ -11,9 +11,9 @@ edition = "2021"
 [dependencies]
 bincode = "1.3.3"
 clap = { version = "4.4.6", features = ["derive"] }
-owo-colors = {version = "3.5.0", features = ["supports-colors"]}
-serde = {version="1.0.188", features=["std", "derive"]}
-webgestalt_lib = {path = "webgestalt_lib"}
+owo-colors = { version = "3.5.0", features = ["supports-colors"] }
+serde = { version = "1.0.188", features = ["std", "derive"] }
+webgestalt_lib = { path = "webgestalt_lib" }
 
 [profile.release]
 opt-level = 3

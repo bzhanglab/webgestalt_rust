@@ -2,7 +2,6 @@ use crate::{readers::utils::Item, stat};
 use ahash::AHashSet;
 use rayon::prelude::*;
 use statrs::distribution::{DiscreteCDF, Hypergeometric};
-use std::sync::{Arc, Mutex};
 
 #[derive(Clone)]
 pub struct ORAConfig {

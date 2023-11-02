@@ -1,4 +1,4 @@
-use pretty_assertions::{assert_eq, assert_ne};
+use pretty_assertions::assert_eq;
 use statrs::assert_almost_eq;
 use webgestalt_lib;
 
