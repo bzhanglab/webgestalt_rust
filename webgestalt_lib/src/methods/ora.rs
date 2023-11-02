@@ -69,29 +69,30 @@ pub fn get_ora(
 ) -> Vec<ORAResult> {
     let m: i64 = reference.len() as i64;
     let n: i64 = interest_list.len() as i64;
-    let res = Arc::new(Mutex::new(Vec::new()));
-    gmt.par_iter().for_each(|i| {
-        let mut j: i64 = 0;
-        let mut enriched_parts: AHashSet<String> = AHashSet::default();
-        let mut k: i64 = 0;
-        for analyte in i.parts.iter() {
-            if interest_list.contains(analyte) {
-                k += 1;
-                enriched_parts.insert(analyte.to_owned());
+    let partials: Vec<PartialORAResult> = gmt
+        .par_iter()
+        .map(|i| {
+            let mut j: i64 = 0;
+            let mut enriched_parts: AHashSet<String> = AHashSet::default();
+            let mut k: i64 = 0;
+            for analyte in i.parts.iter() {
+                if interest_list.contains(analyte) {
+                    k += 1;
+                    enriched_parts.insert(analyte.to_owned());
+                }
+                if reference.contains(analyte) {
+                    j += 1;
+                }
             }
-            if reference.contains(analyte) {
-                j += 1;
+            let p = if k == 0 { 1.0 } else { ora_p(m, j, n, k) };
+            PartialORAResult {
+                set: i.id.clone(),
+                p,
+                overlap: k,
+                expected: j as f64 * n as f64 / m as f64,
             }
-        }
-        let p = if k == 0 { 1.0 } else { ora_p(m, j, n, k) };
-        res.lock().unwrap().push(PartialORAResult {
-            set: i.id.clone(),
-            p,
-            overlap: k,
-            expected: j as f64 * n as f64 / m as f64,
-        });
-    });
-    let partials = res.lock().unwrap();
+        })
+        .collect();
     let p_vals: Vec<f64> = partials.iter().map(|x| x.p).collect();
     let fdrs: Vec<f64> = stat::adjust(&p_vals, config.fdr_method);
     let mut final_res = Vec::new();

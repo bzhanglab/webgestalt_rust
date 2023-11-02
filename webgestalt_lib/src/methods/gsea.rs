@@ -36,20 +36,20 @@ pub struct RankListItem {
     pub rank: f64,
 }
 
-struct GSEAResult {
+struct PartialGSEAResult {
     // TODO: Look at adding enrichment and normalized enrichment score
     set: String,
     p: f64,
     es: f64,
     nes: f64,
-    overlap: i32,
     leading_edge: i32,
     running_sum: Vec<f64>,
+    nes_iter: Vec<f64>,
 }
 
-impl GSEAResult {
-    pub fn add_fdr(&self, fdr: f64) -> FullGSEAResult {
-        FullGSEAResult {
+impl PartialGSEAResult {
+    pub fn add_fdr(&self, fdr: f64) -> GSEAResult {
+        GSEAResult {
             set: self.set.clone(),
             p: self.p,
             fdr,
@@ -62,7 +62,7 @@ impl GSEAResult {
 }
 
 #[derive(Clone)]
-pub struct FullGSEAResult {
+pub struct GSEAResult {
     /// The set name
     pub set: String,
     /// The statistical p-value
@@ -113,7 +113,7 @@ fn analyte_set_p(
     p: f64,
     permutations_vec: &Vec<Vec<usize>>,
     config: &GSEAConfig,
-) -> (GSEAResult, Vec<f64>) {
+) -> PartialGSEAResult {
     let permutations = permutations_vec.len();
     let analyte_set = AHashSet::from_iter(item.parts.iter());
     let mut n_r: f64 = 0.0;
@@ -128,19 +128,16 @@ fn analyte_set_p(
         }
     }
     if overlap < config.min_overlap || overlap > config.max_overlap {
-        (
-            GSEAResult {
-                // No GSEA needed
-                set: item.id.clone(),
-                p: 1.0,
-                nes: 0.0,
-                es: 0.0,
-                overlap,
-                leading_edge: 0,
-                running_sum: Vec::new(),
-            },
-            Vec::new(),
-        )
+        PartialGSEAResult {
+            // No GSEA needed
+            set: item.id.clone(),
+            p: 1.0,
+            nes: 0.0,
+            es: 0.0,
+            leading_edge: 0,
+            running_sum: Vec::new(),
+            nes_iter: Vec::new(),
+        }
     } else {
         let inverse_nr = 1.0 / n_r; // Invert n_r for the enrichment score
         let original_order = (0..analyte_count).collect::<Vec<usize>>(); // get regular order
@@ -161,19 +158,21 @@ fn analyte_set_p(
             inverse_nr,
             false,
         );
-        let mut es_iter = Vec::new(); // Not parallelized because locking is expensive
-        (0..permutations).for_each(|i| {
-            // get es for the permutations
-            let (p_es, _, _) = enrichment_score(
-                &has_analyte,
-                &new_ranks,
-                &permutations_vec[i],
-                inverse_size_dif,
-                inverse_nr,
-                true,
-            );
-            es_iter.push(p_es);
-        });
+        let es_iter: Vec<f64> = (0..permutations)
+            .into_par_iter()
+            .map(|i| {
+                // get es for the permutations
+                let (p_es, _, _) = enrichment_score(
+                    &has_analyte,
+                    &new_ranks,
+                    &permutations_vec[i],
+                    inverse_size_dif,
+                    inverse_nr,
+                    true,
+                );
+                p_es
+            })
+            .collect();
         let side: Vec<&f64> = if real_es >= 0_f64 {
             // get side of distribution for p value
             es_iter.iter().filter(|x| *x >= &0_f64).collect()
@@ -213,18 +212,15 @@ fn analyte_set_p(
         } else {
             -real_es / down_avg
         };
-        (
-            GSEAResult {
-                set: item.id.clone(),
-                p,
-                nes: norm_es,
-                es: real_es,
-                overlap,
-                leading_edge: max_hits,
-                running_sum,
-            },
-            nes_es,
-        )
+        PartialGSEAResult {
+            set: item.id.clone(),
+            p,
+            nes: norm_es,
+            es: real_es,
+            leading_edge: max_hits,
+            running_sum,
+            nes_iter: nes_es,
+        }
     }
 }
 
@@ -293,29 +289,25 @@ pub fn gsea(
     gmt: Vec<Item>,
     config: GSEAConfig,
     provided_permutations: Option<Vec<Vec<usize>>>,
-) -> Vec<FullGSEAResult> {
+) -> Vec<GSEAResult> {
     println!("Starting GSEA Calculation.");
     analyte_list.sort_by(|a, b| b.rank.partial_cmp(&a.rank).unwrap()); // sort list
     let (analytes, ranks) = RankListItem::to_vecs(analyte_list.clone()); // seperate into vectors
     let permutations: Vec<Vec<usize>> =
         provided_permutations.unwrap_or(make_permutations(config.permutations, analytes.len()));
-    let all_nes = Arc::new(Mutex::new(Vec::new()));
-    let set_nes = Arc::new(Mutex::new(Vec::new()));
-    let all_res = Arc::new(Mutex::new(Vec::new()));
-    gmt.par_iter().for_each(|analyte_set| {
-        // parallelized scoring of all sets
-        let (y, nes_iter) =
-            analyte_set_p(&analytes, &ranks, analyte_set, 1.0, &permutations, &config);
-        if y.overlap >= config.min_overlap && y.overlap <= config.max_overlap {
-            all_nes.lock().unwrap().extend(nes_iter);
-            set_nes.lock().unwrap().push(y.nes);
-            all_res.lock().unwrap().push(y);
-        }
-    });
-    let null_distribution = all_nes.lock().unwrap();
-    let observed_distribution = set_nes.lock().unwrap();
-    let partial_results: std::sync::MutexGuard<'_, Vec<GSEAResult>> = all_res.lock().unwrap();
-    let mut final_gsea: Vec<FullGSEAResult> = Vec::new();
+    let partial_results: Vec<PartialGSEAResult> = gmt
+        .par_iter()
+        .map(|analyte_set| {
+            // parallelized scoring of all sets
+            analyte_set_p(&analytes, &ranks, analyte_set, 1.0, &permutations, &config)
+        })
+        .collect();
+    let null_distribution: Vec<f64> = partial_results
+        .iter()
+        .flat_map(|x| x.nes_iter.clone())
+        .collect();
+    let observed_distribution: Vec<f64> = partial_results.iter().map(|x| x.nes).collect();
+    let mut final_gsea: Vec<GSEAResult> = Vec::new();
     let postive_top_side = null_distribution
         .par_iter()
         .filter(|&x| x >= &0_f64)
@@ -332,9 +324,9 @@ pub fn gsea(
         .par_iter()
         .filter(|&x| x < &0_f64)
         .collect();
-    for i in 0..partial_results.len() {
+    for item in &partial_results {
         // get all FDR values
-        let nes = partial_results[i].nes;
+        let nes = item.nes;
         let top_side: &Vec<&f64> = if nes > 0_f64 {
             // positive null distribution
             &postive_top_side
@@ -366,7 +358,7 @@ pub fn gsea(
             .filter(|&x| x.abs() >= nes_abs)
             .count() as f64;
         let fdr: f64 = (top_val * bottom_len) / (bottom_val * top_len); // get FDR value
-        final_gsea.push(partial_results[i].add_fdr(fdr));
+        final_gsea.push(item.add_fdr(fdr));
     }
     final_gsea
 }
