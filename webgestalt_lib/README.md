@@ -11,7 +11,7 @@ Supported methods include:
 
 ## Installation
 
-To use webgestalt_lib in your Rust project, add the following line to your `Cargo.toml`. 
+To use webgestalt_lib in your Rust project, add the following line to your `Cargo.toml`.
 
 ```toml
 webgestalt_lib = {git = "https://github.com/bzhanglab/webgestalt_rust.git"}
@@ -23,8 +23,8 @@ If you are just interested in running an analysis, rather than develop new tools
 
 1. Fast and correct implementations of enrichment methods
 2. Full compatibility with the WebGestaltR package
-    - The R package provides the most reporting functionality, and project was initially created to only assist the R package with the computation aspects
+   - The R package provides the most reporting functionality, and project was initially created to only assist the R package with the computation aspects
 3. Fast compilation times
-    - Every package install has to build the library from scratch, so the lower number of dependencies, the better
+   - Every package install has to build the library from scratch, so the lower number of dependencies, the better
 
 This crate does not provide any data formatting, or charts to display the results of the analysis. This work has already been done by the [R package](https://github.com/bzhanglab/webgestaltr), and a limited implementation is provided by the Rust CLI. The focus for this library is purely computational.

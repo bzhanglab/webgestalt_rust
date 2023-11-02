@@ -161,19 +161,21 @@ fn analyte_set_p(
             inverse_nr,
             false,
         );
-        let mut es_iter = Vec::new(); // Not parallelized because locking is expensive
-        (0..permutations).for_each(|i| {
-            // get es for the permutations
-            let (p_es, _, _) = enrichment_score(
-                &has_analyte,
-                &new_ranks,
-                &permutations_vec[i],
-                inverse_size_dif,
-                inverse_nr,
-                true,
-            );
-            es_iter.push(p_es);
-        });
+        let es_iter: Vec<f64> = (0..permutations)
+            .into_par_iter()
+            .map(|i| {
+                // get es for the permutations
+                let (p_es, _, _) = enrichment_score(
+                    &has_analyte,
+                    &new_ranks,
+                    &permutations_vec[i],
+                    inverse_size_dif,
+                    inverse_nr,
+                    true,
+                );
+                p_es
+            })
+            .collect();
         let side: Vec<&f64> = if real_es >= 0_f64 {
             // get side of distribution for p value
             es_iter.iter().filter(|x| *x >= &0_f64).collect()
