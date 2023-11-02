@@ -2,7 +2,7 @@ use ahash::{AHashMap, AHashSet};
 use statrs::distribution::{Continuous, ContinuousCDF, Normal};
 
 use super::{
-    gsea::{FullGSEAResult, GSEAConfig, RankListItem},
+    gsea::{GSEAConfig, GSEAResult, RankListItem},
     ora::{get_ora, ORAConfig, ORAResult},
 };
 use crate::{methods::gsea::gsea, readers::utils::Item};
@@ -61,10 +61,10 @@ pub enum NormalizationMethod {
 ///
 /// Returns a [`Vec<Vec<FullGSEAResult>>`] containing the results of each analysis. If the method was not meta-analysis, then the outer vector will only have one element.
 /// If the method was meta-analysis, then the first element will be the results of the meta-analysis, and the rest of the elements will be the results of each analysis run individually.
-pub fn multiomic_gsea(jobs: Vec<GSEAJob>, method: MultiOmicsMethod) -> Vec<Vec<FullGSEAResult>> {
+pub fn multiomic_gsea(jobs: Vec<GSEAJob>, method: MultiOmicsMethod) -> Vec<Vec<GSEAResult>> {
     if let MultiOmicsMethod::Meta(meta_method) = method {
         let mut phash: AHashMap<String, Vec<f64>> = AHashMap::default();
-        let mut results: Vec<Vec<FullGSEAResult>> = Vec::new();
+        let mut results: Vec<Vec<GSEAResult>> = Vec::new();
         for job in jobs {
             let res = gsea(job.rank_list, job.gmt, job.config, None);
             for row in res.iter() {
@@ -73,12 +73,12 @@ pub fn multiomic_gsea(jobs: Vec<GSEAJob>, method: MultiOmicsMethod) -> Vec<Vec<F
             }
             results.push(res);
         }
-        let mut final_result: Vec<FullGSEAResult> = Vec::new();
+        let mut final_result: Vec<GSEAResult> = Vec::new();
         match meta_method {
             MetaAnalysisMethod::Stouffer => {
                 let normal = Normal::new(0.0, 1.0).unwrap();
                 for set in phash.keys() {
-                    final_result.push(FullGSEAResult {
+                    final_result.push(GSEAResult {
                         set: set.clone(),
                         p: stouffer_with_normal(&phash[set], &normal),
                         fdr: 0.0,
@@ -91,7 +91,7 @@ pub fn multiomic_gsea(jobs: Vec<GSEAJob>, method: MultiOmicsMethod) -> Vec<Vec<F
             }
             MetaAnalysisMethod::Fisher => {
                 for set in phash.keys() {
-                    final_result.push(FullGSEAResult {
+                    final_result.push(GSEAResult {
                         set: set.clone(),
                         p: fisher(&phash[set]),
                         fdr: 0.0,
