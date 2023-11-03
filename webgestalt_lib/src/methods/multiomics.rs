@@ -22,7 +22,7 @@ pub enum MetaAnalysisMethod {
 }
 
 pub enum AnalysisType {
-    /// Gene Set Enrichment Analysips
+    /// Gene Set Enrichment Analysis
     GSEA,
     /// Over-representation Analysis
     ORA,
@@ -49,12 +49,12 @@ pub enum NormalizationMethod {
     None,
 }
 
-/// Run a multiomics analysis, using iehter the max/mean median ratio or a typical meta analysis
+/// Run a multiomics analysis, using either the max/mean median ratio or a typical meta analysis
 /// method
 ///
 /// # Parameters
 ///
-/// - `jobs` - A [`Vec<GSEAJob>`] containing all of the seperates 'jobs' or analysis to combine
+/// - `jobs` - A [`Vec<GSEAJob>`] containing all of the separates 'jobs' or analysis to combine
 /// - `method` - A [`MultiOmicsMethod`] enum detailing the analysis method to combine the runs together (meta-analysis, mean median ration, or max median ratio).
 ///
 /// # Returns

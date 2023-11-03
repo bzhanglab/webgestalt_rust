@@ -9,7 +9,7 @@ fn ora() {
         "data/genelist.txt".to_owned(),
         "data/reference.txt".to_owned(),
     );
-    let gmtcount = gmt.len();
+    let gmtcount: usize = gmt.len();
     let x: Vec<webgestalt_lib::methods::ora::ORAResult> =
         webgestalt_lib::methods::ora::get_ora(&gene_list, &reference, gmt, ORAConfig::default());
     let res = x.iter().find(|x| x.set == "GO:2000147").unwrap();
