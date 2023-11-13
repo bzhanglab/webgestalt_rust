@@ -270,7 +270,15 @@ fn enrichment_score(
             max_hits = hits;
         }
     }
-    (max_score, max_hits, running_sum)
+    (
+        max_score,
+        if max_score > 0.0 {
+            max_hits
+        } else {
+            running_sum.len() as i32 - max_hits
+        },
+        running_sum,
+    )
 }
 
 /// Run GSEA and return a [`Vec<FullGSEAResult`] for all analayte sets.

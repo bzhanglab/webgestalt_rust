@@ -182,8 +182,16 @@ fn main() {
                 .unwrap_or_else(|_| {
                     panic!("File {} not found", gsea_args.gmt.clone().unwrap());
                 });
-            webgestalt_lib::methods::gsea::gsea(gene_list, gmt, GSEAConfig::default(), None);
-            println!("Done with GSEA");
+            let res =
+                webgestalt_lib::methods::gsea::gsea(gene_list, gmt, GSEAConfig::default(), None);
+            let mut count = 0;
+            for i in res {
+                if i.p < 0.05 && i.fdr < 0.05 {
+                    println!("{}: {}, {}", i.set, i.p, i.fdr);
+                    count += 1;
+                }
+            }
+            println!("Done with GSEA: {}", count);
         }
         Some(Commands::Ora(ora_args)) => {
             let style = Style::new().red().bold();
