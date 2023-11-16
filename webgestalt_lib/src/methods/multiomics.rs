@@ -243,8 +243,8 @@ fn normalize(list: &mut Vec<RankListItem>, method: NormalizationMethod) -> Vec<R
         NormalizationMethod::None => list.clone(),
         NormalizationMethod::MedianRank => {
             list.sort_by(|a, b| {
-                b.rank
-                    .partial_cmp(&a.rank)
+                a.rank
+                    .partial_cmp(&b.rank)
                     .expect("Invalid float comparison during normalization")
             });
             let median = list.len() as f64 / 2.0;
@@ -265,11 +265,12 @@ fn normalize(list: &mut Vec<RankListItem>, method: NormalizationMethod) -> Vec<R
             });
             let min = list.last().unwrap().rank;
             let median = list[list.len() / 2].rank - min;
+            let shift = min / median;
             let mut final_list: Vec<RankListItem> = Vec::new();
             for item in list.iter() {
                 final_list.push(RankListItem {
                     analyte: item.analyte.clone(),
-                    rank: (item.rank - min) / median + min / median,
+                    rank: (item.rank - min) / median + shift,
                 });
             }
             final_list
@@ -281,12 +282,14 @@ fn normalize(list: &mut Vec<RankListItem>, method: NormalizationMethod) -> Vec<R
                     .expect("Invalid float comparison during normalization")
             });
             let min = list.last().unwrap().rank;
-            let mean: f64 = list.iter().map(|x| x.rank).sum::<f64>() / (list.len() as f64) - min;
+            let mean: f64 = list.iter().map(|x| x.rank - min).sum::<f64>() / (list.len() as f64)
+                - min / (list.len() as f64);
+            let shift = min / mean;
             let mut final_list: Vec<RankListItem> = Vec::new();
             for item in list.iter() {
                 final_list.push(RankListItem {
                     analyte: item.analyte.clone(),
-                    rank: (item.rank - min) / mean + min / mean,
+                    rank: (item.rank - min) / mean + shift,
                 });
             }
             final_list
