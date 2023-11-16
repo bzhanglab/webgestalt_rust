@@ -248,11 +248,12 @@ fn normalize(list: &mut Vec<RankListItem>, method: NormalizationMethod) -> Vec<R
                     .expect("Invalid float comparison during normalization")
             });
             let median = list.len() as f64 / 2.0;
+            let len: f64 = list.len() as f64;
             let mut final_list: Vec<RankListItem> = Vec::new();
             for (i, item) in list.iter().enumerate() {
                 final_list.push(RankListItem {
                     analyte: item.analyte.clone(),
-                    rank: (i as f64 - median) / median,
+                    rank: (i as f64 - median) / len,
                 });
             }
             final_list
