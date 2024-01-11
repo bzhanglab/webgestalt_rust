@@ -123,10 +123,10 @@ fn main() {
                     "webgestalt_lib/data/test.rnk".to_owned(),
                 );
                 let gmt = webgestalt_lib::readers::read_gmt_file(
-                    "webgestalt_lib/data/test.gmt".to_owned(),
+                    "webgestalt_lib/data/ktest.gmt".to_owned(),
                 );
                 let start = Instant::now();
-                webgestalt_lib::methods::gsea::gsea(
+                let res = webgestalt_lib::methods::gsea::gsea(
                     gene_list.unwrap(),
                     gmt.unwrap(),
                     GSEAConfig::default(),
@@ -137,7 +137,7 @@ fn main() {
             }
             Some(ExampleOptions::Ora) => {
                 let (gmt, gene_list, reference) = webgestalt_lib::readers::read_ora_files(
-                    "webgestalt_lib/data/test.gmt".to_owned(),
+                    "webgestalt_lib/data/ktest.gmt".to_owned(),
                     "webgestalt_lib/data/genelist.txt".to_owned(),
                     "webgestalt_lib/data/reference.txt".to_owned(),
                 );

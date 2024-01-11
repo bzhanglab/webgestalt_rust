@@ -34,7 +34,7 @@ pub fn read_gmt_file(path: String) -> Result<Vec<Item>, Box<std::io::Error>> {
             .iter()
             .map(|x| x.to_string())
             .collect::<Vec<String>>();
-        let id = result.get(0).unwrap().to_owned();
+        let id = result.first().unwrap().to_owned();
         let url = result.get(1).unwrap().to_owned();
         let parts = result[2..].to_vec();
         let item = Item { id, url, parts };
@@ -57,7 +57,7 @@ pub fn read_rank_file(path: String) -> Result<Vec<RankListItem>, Box<std::io::Er
             .iter()
             .map(|x| x.to_string())
             .collect::<Vec<String>>();
-        let phenotype = result.get(0).unwrap().to_owned();
+        let phenotype = result.first().unwrap().to_owned();
         let rank = result.get(1).unwrap().to_owned().parse::<f64>().unwrap();
         let item = RankListItem {
             analyte: phenotype,
@@ -101,7 +101,7 @@ pub fn read_ora_files(
             .iter()
             .map(|x| x.to_string())
             .collect::<Vec<String>>();
-        let id = result.get(0).unwrap().to_owned();
+        let id = result.first().unwrap().to_owned();
         let url = result.get(1).unwrap().to_owned();
         let parts = result[2..].to_vec();
         for analyte in parts.clone().into_iter() {

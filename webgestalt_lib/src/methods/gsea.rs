@@ -196,7 +196,7 @@ fn analyte_set_p(
             .collect();
         let down: Vec<f64> = es_iter // down scores
             .par_iter()
-            .filter(|&x| *x < 0_f64)
+            .filter(|&x| *x <= 0_f64)
             .copied()
             .collect();
         let up_len = up.len();
@@ -204,18 +204,24 @@ fn analyte_set_p(
         let up_avg: f64 = if up.is_empty() {
             0.000001
         } else {
-            up.par_iter().sum::<f64>() / (up_len as f64 + 0.000001) - 0.000001
+            up.par_iter().sum::<f64>() / (up_len as f64 + 0.000001) + 0.000001
         }; // up average
         let down_avg: f64 = if down.is_empty() {
             -0.000001
         } else {
-            down.par_iter().sum::<f64>() / (down_len as f64 + 0.000001) - 0.000001
+            down.par_iter().sum::<f64>() / (down_len as f64 - 0.000001) - 0.000001
         }; // down average
         let mut nes_es: Vec<f64> = up.par_iter().map(|x| x / up_avg).collect(); // get all normalized scores for up
         nes_es.extend(down.par_iter().map(|x| -x / down_avg).collect::<Vec<f64>>()); // extend with down scores
         let norm_es: f64 = if real_es >= 0_f64 {
             // get normalized score for the real run
-            real_es / up_avg
+            if up.is_empty() {
+                0.0
+            } else {
+                real_es / up_avg
+            }
+        } else if down.is_empty() {
+            0.0
         } else {
             -real_es / down_avg
         };
