@@ -16,7 +16,7 @@ repository = "https://github.com/bzhanglab/webgestalt_rust"
 bincode = "1.3.3"
 clap = { version = "4.4.15", features = ["derive"] }
 owo-colors = { version = "4.0.0", features = ["supports-colors"] }
-webgestalt_lib = { version = "0.1.0" }
+webgestalt_lib = { path = "webgestalt_lib" }
 
 [profile.release]
 opt-level = 3

@@ -7,6 +7,19 @@ use std::{
 };
 use utils::Item;
 
+/// Read GMT file from specified path. For format description, see [broadinstitute.org](https://software.broadinstitute.org/cancer/software/gsea/wiki/index.php/Data_formats#GMT:_Gene_Matrix_Transposed_file_format_.28.2A.gmt.29)
+///
+/// # Parameters
+///
+/// - `path` - A [`String`] of the path of the GMT to read.
+///
+/// # Panics
+///
+/// Panics if there is not file at `path`.
+///
+/// # Returns
+///
+/// If result is `Ok`, returns a [`Vec<Item>`] containing the elements of the GMT
 pub fn read_gmt_file(path: String) -> Result<Vec<Item>, Box<std::io::Error>> {
     let file = File::open(path)?;
     let mut rdr = csv::ReaderBuilder::new()

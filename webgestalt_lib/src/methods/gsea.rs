@@ -92,6 +92,7 @@ impl RankListItem {
 /// Run GSEA for one analyte set.
 ///
 /// Returns a [`GSEAResult`], which does not have FDR.
+///
 /// # Parameters
 ///
 /// - `analytes` - Vector containing the names of the analytes
@@ -200,8 +201,16 @@ fn analyte_set_p(
             .collect();
         let up_len = up.len();
         let down_len = down.len();
-        let up_avg: f64 = up.par_iter().sum::<f64>() / (up_len as f64 + 0.000001) + 0.000001; // up average
-        let down_avg: f64 = down.par_iter().sum::<f64>() / (down_len as f64 + 0.000001) - 0.000001; // down average
+        let up_avg: f64 = if up.is_empty() {
+            0.000001
+        } else {
+            up.par_iter().sum::<f64>() / (up_len as f64 + 0.000001) - 0.000001
+        }; // up average
+        let down_avg: f64 = if down.is_empty() {
+            -0.000001
+        } else {
+            down.par_iter().sum::<f64>() / (down_len as f64 + 0.000001) - 0.000001
+        }; // down average
         let mut nes_es: Vec<f64> = up.par_iter().map(|x| x / up_avg).collect(); // get all normalized scores for up
         nes_es.extend(down.par_iter().map(|x| -x / down_avg).collect::<Vec<f64>>()); // extend with down scores
         let norm_es: f64 = if real_es >= 0_f64 {
