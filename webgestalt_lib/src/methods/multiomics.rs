@@ -335,7 +335,7 @@ pub fn combine_gmts(gmts: &Vec<Vec<Item>>) -> Vec<Item> {
 /// ```rust
 /// use webgestalt_lib::methods::multiomics::stouffer;
 /// let vals: Vec<f64> = vec![0.1, 0.01, 0.11, 0.23];
-/// let metap: f64 = stouffer(vals);
+/// let metap: f64 = stouffer(&vals);
 /// ```
 pub fn stouffer(vals: &Vec<f64>) -> f64 {
     let n = Normal::new(0.0, 1.0).unwrap();
