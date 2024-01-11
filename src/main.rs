@@ -163,7 +163,9 @@ fn main() {
                     duration, count, gmtcount
                 );
             }
-            _ => todo!("HELLO"),
+            _ => {
+                println!("Please select a valid example: ora or gsea.");
+            }
         },
         Some(Commands::Gsea(gsea_args)) => {
             let style = Style::new().red().bold();
