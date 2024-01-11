@@ -4,6 +4,9 @@ version = "0.1.0"
 authors = ["John Elizarraras"]
 edition = "2021"
 rust-version = "1.63.0"
+description = "Library for computing enrichment for different analytes using ORA or GSEA."
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/bzhanglab/webgestalt_rust"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
