@@ -5,9 +5,13 @@ use super::{
     gsea::{GSEAConfig, GSEAResult, RankListItem},
     ora::{get_ora, ORAConfig, ORAResult},
 };
-use crate::{methods::gsea::gsea, readers::utils::Item};
+use crate::{
+    methods::gsea::gsea,
+    readers::utils::Item,
+    stat::{adjust, AdjustmentMethod},
+};
 
-pub enum MultiOmicsMethod {
+pub enum MultiListMethod {
     /// Get the max median ratio of the analyte from any list
     Max(NormalizationMethod),
     /// Get the average median ratio of analyte from all the lists
@@ -49,7 +53,7 @@ pub enum NormalizationMethod {
     None,
 }
 
-/// Run a multiomics analysis, using either the max/mean median ratio or a typical meta analysis
+/// Run a multilist analysis, using either the max/mean median ratio or a typical meta analysis
 /// method
 ///
 /// # Parameters
@@ -61,8 +65,8 @@ pub enum NormalizationMethod {
 ///
 /// Returns a [`Vec<Vec<FullGSEAResult>>`] containing the results of each analysis. If the method was not meta-analysis, then the outer vector will only have one element.
 /// If the method was meta-analysis, then the first element will be the results of the meta-analysis, and the rest of the elements will be the results of each analysis run individually.
-pub fn multiomic_gsea(jobs: Vec<GSEAJob>, method: MultiOmicsMethod) -> Vec<Vec<GSEAResult>> {
-    if let MultiOmicsMethod::Meta(meta_method) = method {
+pub fn multilist_gsea(jobs: Vec<GSEAJob>, method: MultiListMethod) -> Vec<Vec<GSEAResult>> {
+    if let MultiListMethod::Meta(meta_method) = method {
         let mut phash: AHashMap<String, Vec<f64>> = AHashMap::default();
         let mut results: Vec<Vec<GSEAResult>> = Vec::new();
         for job in jobs {
@@ -119,9 +123,24 @@ pub fn multiomic_gsea(jobs: Vec<GSEAJob>, method: MultiOmicsMethod) -> Vec<Vec<G
     }
 }
 
-pub fn multiomic_ora(jobs: Vec<ORAJob>, method: MultiOmicsMethod) -> Vec<Vec<ORAResult>> {
+/// Perform multi-list over-representation analysis
+///
+/// # Parameters
+///
+/// - `jobs` - [`Vec<ORAJob>`] containing [`ORAJob`] for each list
+/// - `method` - [`MultiListMethod`] detailing how to combine the different lists (i.e. meta-analysis)
+/// - `fdr_method` - [`AdjustmentMethod`] of what FDR method to use to adjust p-values
+///
+/// # Panics
+///
+/// Panics if there is a arithmetic error.
+pub fn multilist_ora(
+    jobs: Vec<ORAJob>,
+    method: MultiListMethod,
+    fdr_method: AdjustmentMethod,
+) -> Vec<Vec<ORAResult>> {
     match method {
-        MultiOmicsMethod::Meta(meta_method) => {
+        MultiListMethod::Meta(meta_method) => {
             let mut phash: AHashMap<String, Vec<f64>> = AHashMap::default();
             let mut results: Vec<Vec<ORAResult>> = Vec::new();
             for job in jobs {
@@ -133,32 +152,30 @@ pub fn multiomic_ora(jobs: Vec<ORAJob>, method: MultiOmicsMethod) -> Vec<Vec<ORA
                 results.push(res);
             }
             let mut final_result: Vec<ORAResult> = Vec::new();
+            let mut meta_p = Vec::new();
             match meta_method {
                 MetaAnalysisMethod::Stouffer => {
                     let normal = Normal::new(0.0, 1.0).unwrap();
                     for set in phash.keys() {
-                        final_result.push(ORAResult {
-                            set: set.clone(),
-                            p: stouffer_with_normal(&phash[set], &normal),
-                            fdr: 0.0,
-                            overlap: 0,
-                            expected: 0.0,
-                            enrichment_ratio: 0.0,
-                        });
+                        meta_p.push(stouffer_with_normal(&phash[set], &normal))
                     }
                 }
                 MetaAnalysisMethod::Fisher => {
                     for set in phash.keys() {
-                        final_result.push(ORAResult {
-                            set: set.clone(),
-                            p: fisher(&phash[set]),
-                            fdr: 0.0,
-                            overlap: 0,
-                            expected: 0.0,
-                            enrichment_ratio: 0.0,
-                        });
+                        meta_p.push(fisher(&phash[set]));
                     }
                 }
+            }
+            let meta_fdr = adjust(&meta_p, fdr_method);
+            for (i, set) in phash.keys().enumerate() {
+                final_result.push(ORAResult {
+                    set: set.clone(),
+                    p: meta_p[i],
+                    fdr: meta_fdr[i],
+                    overlap: 0,
+                    expected: 0.0,
+                    enrichment_ratio: 0.0,
+                })
             }
             results.insert(0, final_result);
             results
@@ -171,12 +188,12 @@ pub fn multiomic_ora(jobs: Vec<ORAJob>, method: MultiOmicsMethod) -> Vec<Vec<ORA
 
 pub fn combine_lists(
     lists: Vec<Vec<RankListItem>>,
-    combination_method: MultiOmicsMethod,
+    combination_method: MultiListMethod,
 ) -> Vec<RankListItem> {
     match combination_method {
-        MultiOmicsMethod::Max(normalization_method) => max_combine(lists, normalization_method),
-        MultiOmicsMethod::Mean(normalization_method) => mean_combine(lists, normalization_method),
-        MultiOmicsMethod::Meta(_) => panic!("Lists can not be combined for meta-analysis"),
+        MultiListMethod::Max(normalization_method) => max_combine(lists, normalization_method),
+        MultiListMethod::Mean(normalization_method) => mean_combine(lists, normalization_method),
+        MultiListMethod::Meta(_) => panic!("Lists can not be combined for meta-analysis"),
     }
 }
 
@@ -333,7 +350,7 @@ pub fn combine_gmts(gmts: &Vec<Vec<Item>>) -> Vec<Item> {
 /// # Examples
 ///
 /// ```rust
-/// use webgestalt_lib::methods::multiomics::stouffer;
+/// use webgestalt_lib::methods::multilist::stouffer;
 /// let vals: Vec<f64> = vec![0.1, 0.01, 0.11, 0.23];
 /// let metap: f64 = stouffer(&vals);
 /// ```
@@ -363,7 +380,7 @@ pub fn fisher(vals: &Vec<f64>) -> f64 {
 /// # Examples
 ///
 /// ```rust
-/// use webgestalt_lib::methods::multiomics::stouffer_weighted;
+/// use webgestalt_lib::methods::multilist::stouffer_weighted;
 /// let vals: Vec<f64> = vec![0.1, 0.01, 0.11, 0.23];
 /// let weights: Vec<f64> = vec![0.1, 0.2, 0.3, 0.4];
 /// let metap: f64 = stouffer_weighted(vals, weights);

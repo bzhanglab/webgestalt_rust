@@ -1,3 +1,3 @@
 pub mod gsea;
-pub mod multiomics;
+pub mod multilist;
 pub mod ora;

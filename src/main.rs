@@ -5,7 +5,7 @@ use owo_colors::{OwoColorize, Stream::Stdout, Style};
 use std::io::{BufReader, Write};
 use std::{fs::File, time::Instant};
 use webgestalt_lib::methods::gsea::GSEAConfig;
-use webgestalt_lib::methods::multiomics::{combine_gmts, MultiOmicsMethod, NormalizationMethod};
+use webgestalt_lib::methods::multilist::{combine_gmts, MultiListMethod, NormalizationMethod};
 use webgestalt_lib::methods::ora::ORAConfig;
 use webgestalt_lib::readers::utils::Item;
 use webgestalt_lib::readers::{read_gmt_file, read_rank_file};
@@ -126,7 +126,7 @@ fn main() {
                     "webgestalt_lib/data/ktest.gmt".to_owned(),
                 );
                 let start = Instant::now();
-                let res = webgestalt_lib::methods::gsea::gsea(
+                let _res = webgestalt_lib::methods::gsea::gsea(
                     gene_list.unwrap(),
                     gmt.unwrap(),
                     GSEAConfig::default(),
@@ -280,13 +280,13 @@ fn main() {
                     Some(NormMethods::MedianValue) => NormalizationMethod::MedianValue,
                     None => panic!("No normalization method chosen."),
                 };
-                let method: MultiOmicsMethod = match ora_args.combination {
-                    Some(CombinationMethods::Mean) => MultiOmicsMethod::Mean(norm_method),
-                    Some(CombinationMethods::Max) => MultiOmicsMethod::Max(norm_method),
+                let method: MultiListMethod = match ora_args.combination {
+                    Some(CombinationMethods::Mean) => MultiListMethod::Mean(norm_method),
+                    Some(CombinationMethods::Max) => MultiListMethod::Max(norm_method),
                     None => panic!("No combination method chosen."),
                 };
                 let mut combined_list =
-                    webgestalt_lib::methods::multiomics::combine_lists(lists, method);
+                    webgestalt_lib::methods::multilist::combine_lists(lists, method);
                 combined_list.sort_by(|a, b| b.rank.partial_cmp(&a.rank).unwrap());
                 let mut file = File::create(ora_args.out.clone().unwrap()).unwrap();
                 println!(

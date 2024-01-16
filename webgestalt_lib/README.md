@@ -6,7 +6,7 @@ Library for performing different types of enrichment analyses. Serves as the und
 
 Supported methods include:
 
-- Over-representation analysis (ORA)
+- Over-Representation Analysis (ORA)
 - Gene Set Enrichment Analysis (GSEA)
 
 ## Installation
@@ -14,10 +14,10 @@ Supported methods include:
 To use webgestalt_lib in your Rust project, add the following line to your `Cargo.toml`.
 
 ```toml
-webgestalt_lib = "0.1.0" # change to wanted version
+webgestalt_lib = "0.1.1" # change to wanted version
 ```
 
-If you are just interested in running an analysis, rather than develop new tools, please use on of the packages mentioned at the beginning of the README.
+If you are just interested in running an analysis, rather than develop new tools, please use one of the packages mentioned at the beginning of the README.
 
 ## Development Priorities
 
@@ -27,7 +27,7 @@ If you are just interested in running an analysis, rather than develop new tools
 3. Fast compilation times
    - Every package install has to build the library from scratch, so the lower number of dependencies, the better
 
-This crate does not provide any data formatting, or charts to display the results of the analysis. This work has already been done by the [R package](https://github.com/bzhanglab/webgestaltr), and a limited implementation is provided by the Rust CLI. The focus for this library is purely computational.
+This crate does not provide any data formatting or charts to display the results of the analysis. This work has already been done by the [R package](https://github.com/bzhanglab/webgestaltr), and a limited implementation is provided by the Rust CLI. The focus for this library is purely computational.
 
 ## License
 
