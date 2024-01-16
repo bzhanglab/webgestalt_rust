@@ -60,12 +60,17 @@ pub enum NormalizationMethod {
 ///
 /// - `jobs` - A [`Vec<GSEAJob>`] containing all of the separates 'jobs' or analysis to combine
 /// - `method` - A [`MultiOmicsMethod`] enum detailing the analysis method to combine the runs together (meta-analysis, mean median ration, or max median ratio).
+/// - `fdr_method` - [`AdjustmentMethod`] of what FDR method to use to adjust p-values
 ///
 /// # Returns
 ///
 /// Returns a [`Vec<Vec<FullGSEAResult>>`] containing the results of each analysis. If the method was not meta-analysis, then the outer vector will only have one element.
 /// If the method was meta-analysis, then the first element will be the results of the meta-analysis, and the rest of the elements will be the results of each analysis run individually.
-pub fn multilist_gsea(jobs: Vec<GSEAJob>, method: MultiListMethod) -> Vec<Vec<GSEAResult>> {
+pub fn multilist_gsea(
+    jobs: Vec<GSEAJob>,
+    method: MultiListMethod,
+    fdr_method: AdjustmentMethod,
+) -> Vec<Vec<GSEAResult>> {
     if let MultiListMethod::Meta(meta_method) = method {
         let mut phash: AHashMap<String, Vec<f64>> = AHashMap::default();
         let mut results: Vec<Vec<GSEAResult>> = Vec::new();
@@ -78,34 +83,31 @@ pub fn multilist_gsea(jobs: Vec<GSEAJob>, method: MultiListMethod) -> Vec<Vec<GS
             results.push(res);
         }
         let mut final_result: Vec<GSEAResult> = Vec::new();
+        let mut meta_p = Vec::new();
         match meta_method {
             MetaAnalysisMethod::Stouffer => {
                 let normal = Normal::new(0.0, 1.0).unwrap();
                 for set in phash.keys() {
-                    final_result.push(GSEAResult {
-                        set: set.clone(),
-                        p: stouffer_with_normal(&phash[set], &normal),
-                        fdr: 0.0,
-                        nes: 0.0,
-                        es: 0.0,
-                        running_sum: Vec::new(),
-                        leading_edge: 0,
-                    });
+                    meta_p.push(stouffer_with_normal(&phash[set], &normal))
                 }
             }
             MetaAnalysisMethod::Fisher => {
                 for set in phash.keys() {
-                    final_result.push(GSEAResult {
-                        set: set.clone(),
-                        p: fisher(&phash[set]),
-                        fdr: 0.0,
-                        nes: 0.0,
-                        es: 0.0,
-                        running_sum: Vec::new(),
-                        leading_edge: 0,
-                    });
+                    meta_p.push(fisher(&phash[set]));
                 }
             }
+        }
+        let meta_fdr = adjust(&meta_p, fdr_method);
+        for (i, set) in phash.keys().enumerate() {
+            final_result.push(GSEAResult {
+                set: set.clone(),
+                p: meta_p[i],
+                fdr: meta_fdr[i],
+                nes: 0.0,
+                es: 0.0,
+                running_sum: Vec::new(),
+                leading_edge: 0,
+            })
         }
         results.insert(0, final_result);
         results
