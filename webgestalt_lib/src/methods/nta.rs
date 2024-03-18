@@ -7,8 +7,6 @@ pub struct NTAOptions {
     pub edge_list: Vec<Vec<String>>,
     /// A vector of strings representing the seeds
     pub seeds: Vec<String>,
-    /// An integer representing the neighborhood size
-    pub neighborhood_size: usize,
     /// A float representing the reset probability during random walk (default: 0.5)
     pub reset_probability: f64,
     /// A float representing the tolerance for probability calculation
@@ -20,11 +18,16 @@ impl Default for NTAOptions {
         NTAOptions {
             edge_list: vec![],
             seeds: vec![],
-            neighborhood_size: 50,
             reset_probability: 0.5,
             tolerance: 0.000001,
         }
     }
+}
+
+pub struct NTAResult {
+    pub neighborhood: Vec<String>,
+    pub scores: Vec<f64>,
+    pub candidates: Vec<String>,
 }
 
 /// Uses random walk to calculate the neighborhood of a set of nodes
@@ -32,7 +35,7 @@ impl Default for NTAOptions {
 ///
 /// # Parameters
 /// - `config` - A [`NTAOptions`] struct containing the edge list, seeds, neighborhood size, reset probability, and tolerance
-pub fn nta(config: NTAOptions) -> Vec<String> {
+pub fn nta(config: NTAOptions) -> Vec<(String, f64)> {
     println!("Building Graph");
     let unique_nodes = ahash::AHashSet::from_iter(config.edge_list.iter().flatten().cloned());
     let mut node_map: ahash::AHashMap<String, usize> = ahash::AHashMap::default();
@@ -60,13 +63,10 @@ pub fn nta(config: NTAOptions) -> Vec<String> {
         config.reset_probability,
         config.reset_probability,
     );
-    let walk = walk_res.to_vec();
-    let mut top_n = walk.iter().enumerate().collect::<Vec<_>>();
-    top_n.sort_by(|a, b| b.1.partial_cmp(a.1).unwrap());
-    top_n.truncate(config.neighborhood_size);
-    top_n
-        .iter()
-        .map(|(i, _p)| reverse_map.get(i).unwrap().clone())
+    let mut walk = walk_res.iter().enumerate().collect::<Vec<(usize, &f64)>>();
+    walk.sort_by(|a, b| b.1.partial_cmp(a.1).unwrap());
+    walk.iter()
+        .map(|(i, p)| (reverse_map.get(&i).unwrap().clone(), **p))
         .collect()
 }
 
