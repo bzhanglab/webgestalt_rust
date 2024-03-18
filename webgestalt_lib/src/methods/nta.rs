@@ -2,7 +2,7 @@ use ndarray::{Array2, Axis, Zip};
 use std::ops::Div;
 
 /// A struct representing the options for the NTA algorithm
-pub struct NTAOptions {
+pub struct NTAConfig {
     /// A vector of vectors of strings representing the edge list of the graph
     pub edge_list: Vec<Vec<String>>,
     /// A vector of strings representing the seeds
@@ -13,9 +13,9 @@ pub struct NTAOptions {
     pub tolerance: f64,
 }
 
-impl Default for NTAOptions {
+impl Default for NTAConfig {
     fn default() -> Self {
-        NTAOptions {
+        NTAConfig {
             edge_list: vec![],
             seeds: vec![],
             reset_probability: 0.5,
@@ -35,7 +35,7 @@ pub struct NTAResult {
 ///
 /// # Parameters
 /// - `config` - A [`NTAOptions`] struct containing the edge list, seeds, neighborhood size, reset probability, and tolerance
-pub fn nta(config: NTAOptions) -> Vec<(String, f64)> {
+pub fn nta(config: NTAConfig) -> Vec<(String, f64)> {
     println!("Building Graph");
     let unique_nodes = ahash::AHashSet::from_iter(config.edge_list.iter().flatten().cloned());
     let mut node_map: ahash::AHashMap<String, usize> = ahash::AHashMap::default();
