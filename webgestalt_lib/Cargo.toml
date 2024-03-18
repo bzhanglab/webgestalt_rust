@@ -1,6 +1,6 @@
 [package]
 name = "webgestalt_lib"
-version = "0.2.1"
+version = "0.3.0"
 authors = ["John Elizarraras"]
 edition = "2021"
 rust-version = "1.63.0"
@@ -17,6 +17,7 @@ rand = { version = "0.8.5", features = ["small_rng"] }
 rayon = "1.8.0"
 statrs = "0.16.0"
 ahash = "0.8.6"
+ndarray = { version = "0.15.6", features = ["rayon"] }
 
 [dev-dependencies]
 pretty_assertions = "1.4.0"
