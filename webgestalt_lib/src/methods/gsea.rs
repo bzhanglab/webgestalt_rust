@@ -3,6 +3,7 @@ use ahash::AHashSet;
 use rand::prelude::SliceRandom;
 use rand::SeedableRng;
 use rayon::prelude::*;
+use serde::Serialize;
 
 /// Parameters for GSEA
 #[derive(Clone)]
@@ -59,7 +60,7 @@ impl PartialGSEAResult {
     }
 }
 
-#[derive(Clone)]
+#[derive(Debug, Serialize, Clone)]
 pub struct GSEAResult {
     /// The set name
     pub set: String,

@@ -14,7 +14,7 @@ Supported methods include:
 To use webgestalt_lib in your Rust project, add the following line to your `Cargo.toml`.
 
 ```toml
-webgestalt_lib = "0.1.1" # change to wanted version
+webgestalt_lib = "0.2.0" # change to wanted version
 ```
 
 If you are just interested in running an analysis, rather than develop new tools, please use one of the packages mentioned at the beginning of the README.

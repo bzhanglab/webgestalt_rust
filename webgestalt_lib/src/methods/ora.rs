@@ -1,6 +1,7 @@
 use crate::{readers::utils::Item, stat};
 use ahash::AHashSet;
 use rayon::prelude::*;
+use serde::Serialize;
 use statrs::distribution::{DiscreteCDF, Hypergeometric};
 
 #[derive(Clone)]
@@ -22,7 +23,7 @@ impl Default for ORAConfig {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Clone)]
 pub struct ORAResult {
     pub set: String,
     pub p: f64,
