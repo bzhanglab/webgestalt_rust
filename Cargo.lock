@@ -313,6 +313,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "ndarray"
+version = "0.15.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "adb12d4e967ec485a5f71c6311fe28158e9d6f4bc4a447b474184d0f91a8fa32"
+dependencies = [
+ "matrixmultiply",
+ "num-complex",
+ "num-integer",
+ "num-traits",
+ "rawpointer",
+ "rayon",
+]
+
+[[package]]
 name = "num-complex"
 version = "0.4.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -603,7 +617,7 @@ checksum = "9c8d87e72b64a3b4db28d11ce29237c246188f4f51057d65a7eab63b7987e423"
 
 [[package]]
 name = "webgestalt"
-version = "0.2.1"
+version = "0.3.0"
 dependencies = [
  "bincode",
  "clap",
@@ -613,10 +627,11 @@ dependencies = [
 
 [[package]]
 name = "webgestalt_lib"
-version = "0.2.1"
+version = "0.3.0"
 dependencies = [
  "ahash",
  "csv",
+ "ndarray",
  "pretty_assertions",
  "rand",
  "rayon",
