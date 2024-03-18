@@ -1,7 +1,5 @@
 use pretty_assertions::assert_eq;
 use statrs::assert_almost_eq;
-use webgestalt_lib;
-
 const THRESHOLD: f64 = 0.0001;
 
 #[test]
