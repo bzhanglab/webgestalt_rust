@@ -1,0 +1,1 @@
+{"neighborhood":["LOXL2"],"scores":[0.5039114522916316],"candidates":["LOXL2"]}

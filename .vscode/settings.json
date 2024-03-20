@@ -1,0 +1,5 @@
+{
+    "rust-analyzer.linkedProjects": [
+        "./webgestalt_lib/Cargo.toml"
+    ]
+}

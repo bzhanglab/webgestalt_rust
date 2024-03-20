@@ -1,6 +1,8 @@
 use ndarray::{Array2, Axis, Zip};
+use serde::Serialize;
 use std::ops::Div;
 
+#[derive(Debug, Clone)]
 /// A struct representing the options for the NTA algorithm
 pub struct NTAConfig {
     /// A vector of vectors of strings representing the edge list of the graph
@@ -11,6 +13,13 @@ pub struct NTAConfig {
     pub reset_probability: f64,
     /// A float representing the tolerance for probability calculation
     pub tolerance: f64,
+    pub method: Option<NTAMethod>,
+}
+
+#[derive(Debug, Clone)]
+pub enum NTAMethod {
+    Prioritize(usize),
+    Expand(usize),
 }
 
 impl Default for NTAConfig {
@@ -20,14 +29,70 @@ impl Default for NTAConfig {
             seeds: vec![],
             reset_probability: 0.5,
             tolerance: 0.000001,
+            method: None,
         }
     }
 }
 
+#[derive(Debug, Serialize)]
 pub struct NTAResult {
     pub neighborhood: Vec<String>,
     pub scores: Vec<f64>,
     pub candidates: Vec<String>,
+}
+
+pub fn get_nta(config: NTAConfig) -> NTAResult {
+    let mut method = config.clone().method;
+    if method.is_none() {
+        method = Some(NTAMethod::Expand(10));
+    }
+    let mut nta_res = nta(config.clone());
+    match method {
+        Some(NTAMethod::Prioritize(size)) => {
+            let only_seeds = nta_res
+                .iter()
+                .filter(|(node, _)| config.seeds.contains(node))
+                .cloned()
+                .collect::<Vec<(String, f64)>>();
+            let mut neighborhood: Vec<String> = Vec::new();
+            let mut candidates: Vec<String> = Vec::new();
+            let mut scores: Vec<f64> = Vec::new();
+            for (node, score) in only_seeds.iter().take(size) {
+                scores.push(*score);
+                neighborhood.push(node.clone());
+                if neighborhood.len() < size {
+                    candidates.push(node.clone());
+                }
+            }
+            return NTAResult {
+                neighborhood,
+                scores,
+                candidates,
+            };
+        }
+        Some(NTAMethod::Expand(size)) => {
+            nta_res = nta_res
+                .iter()
+                .filter(|(node, _)| !config.seeds.contains(node))
+                .cloned()
+                .collect::<Vec<(String, f64)>>();
+            let mut neighborhood: Vec<String> = Vec::new();
+            let mut scores: Vec<f64> = Vec::new();
+            for (node, score) in nta_res.iter().take(size) {
+                neighborhood.push(node.clone());
+                scores.push(*score);
+            }
+            let candidates: Vec<String> = Vec::new();
+            return NTAResult {
+                neighborhood,
+                scores,
+                candidates,
+            };
+        }
+        _ => {
+            panic!("Invalid method");
+        }
+    }
 }
 
 /// Uses random walk to calculate the neighborhood of a set of nodes
@@ -61,7 +126,7 @@ pub fn nta(config: NTAConfig) -> Vec<(String, f64)> {
         &graph,
         &node_indices,
         config.reset_probability,
-        config.reset_probability,
+        config.tolerance,
     );
     let mut walk = walk_res.iter().enumerate().collect::<Vec<(usize, &f64)>>();
     walk.sort_by(|a, b| b.1.partial_cmp(a.1).unwrap());

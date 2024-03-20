@@ -6,6 +6,7 @@ use std::io::{BufReader, Write};
 use std::{fs::File, time::Instant};
 use webgestalt_lib::methods::gsea::GSEAConfig;
 use webgestalt_lib::methods::multilist::{combine_gmts, MultiListMethod, NormalizationMethod};
+use webgestalt_lib::methods::nta::NTAConfig;
 use webgestalt_lib::methods::ora::ORAConfig;
 use webgestalt_lib::readers::utils::Item;
 use webgestalt_lib::readers::{read_gmt_file, read_rank_file};
@@ -31,6 +32,8 @@ enum Commands {
     Gsea(GseaArgs),
     /// Run ORA using the provided files
     Ora(ORAArgs),
+    /// Run NTA on the provided files
+    Nta(NtaArgs),
     /// Run a test
     Test,
     /// Combine multiple files into a single file
@@ -50,6 +53,38 @@ enum ExampleOptions {
     Gsea,
     /// Run an ORA example
     Ora,
+}
+
+#[derive(Parser)]
+struct NtaArgs {
+    /// Path to the file containing the network (tab separated file with two columns: source and target)
+    #[arg(short, long)]
+    network: String,
+    /// Path to the file containing the seeds (one per line)
+    #[arg(short, long)]
+    seeds: String,
+    /// Output path for the results
+    #[arg(short, long)]
+    out: String,
+    /// Probability of random walk resetting
+    #[arg(short, long, default_value = "0.5")]
+    reset_probability: f64,
+    /// Convergence tolerance
+    #[arg(short, long, default_value = "0.000001")]
+    tolerance: f64,
+    /// Number of nodes to prioritize or expand to
+    #[arg(short = 'z', long = "size", default_value = "50")]
+    neighborhood_size: usize,
+    /// Method to use for NTA
+    /// Options: prioritize, expand
+    #[arg(short, long)]
+    method: Option<NTAMethodClap>,
+}
+
+#[derive(ValueEnum, Clone)]
+enum NTAMethodClap {
+    Prioritize,
+    Expand,
 }
 
 #[derive(Args)]
@@ -112,6 +147,7 @@ struct CombineListArgs {
 }
 
 fn main() {
+    println!("WebGestalt CLI v{}", env!("CARGO_PKG_VERSION"));
     let args = CliArgs::parse();
     match &args.command {
         Some(Commands::Benchmark) => {
@@ -233,6 +269,37 @@ fn main() {
             );
         }
         Some(Commands::Test) => will_err(1).unwrap_or_else(|x| println!("{}", x)),
+        Some(Commands::Nta(nta_args)) => {
+            let style = Style::new().fg_rgb::<255, 179, 71>().bold();
+            let network = webgestalt_lib::readers::read_edge_list(nta_args.network.clone());
+            let start = Instant::now();
+            if nta_args.method.is_none() {
+                println!(
+                    "{}: DID NOT PROVIDE A METHOD FOR NTA. USING DEFAULT EXPAND METHOD.",
+                    "WARNING".if_supports_color(Stdout, |text| text.style(style))
+                );
+            };
+            let nta_method = match nta_args.method {
+                Some(NTAMethodClap::Prioritize) => webgestalt_lib::methods::nta::NTAMethod::Prioritize(
+                    nta_args.neighborhood_size,
+                ),
+                Some(NTAMethodClap::Expand) => webgestalt_lib::methods::nta::NTAMethod::Expand(
+                    nta_args.neighborhood_size,
+                ),
+                None => webgestalt_lib::methods::nta::NTAMethod::Expand(nta_args.neighborhood_size),
+            };
+            let config: NTAConfig = NTAConfig {
+                edge_list: network,
+                seeds: webgestalt_lib::readers::read_seeds(nta_args.seeds.clone()),
+                reset_probability: nta_args.reset_probability,
+                tolerance: nta_args.tolerance,
+                method: Some(nta_method),
+
+            };
+            let res = webgestalt_lib::methods::nta::get_nta(config);
+            println!("Analysis Took {:?}", start.elapsed());
+            webgestalt_lib::writers::save_nta(nta_args.out.clone(), res).unwrap();
+        }
         Some(Commands::Combine(args)) => match &args.combine_type {
             Some(CombineType::Gmt(gmt_args)) => {
                 let style = Style::new().blue().bold();
