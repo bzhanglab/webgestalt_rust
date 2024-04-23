@@ -132,10 +132,10 @@ pub fn read_intersection_list(path: String, ref_list: &AHashSet<String>) -> AHas
 }
 
 /// Read edge list from specified path. Separated by whitespace with no support for weights
-/// 
+///
 /// # Parameters
 /// path - A [`String`] of the path of the edge list to read.
-/// 
+///
 /// # Returns
 /// A [`Vec<Vec<String>>`] containing the edge list
 pub fn read_edge_list(path: String) -> Vec<Vec<String>> {
