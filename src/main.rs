@@ -173,7 +173,7 @@ fn check_and_overwrite(file_path: &str) {
     // Check if the file exists
     if std::path::Path::new(file_path).exists() {
         // Check if the user wants to overwrite the file
-        return if !prompt_yes_no(&format!(
+        if !prompt_yes_no(&format!(
             "File at {} already exists. Do you want to overwrite it?",
             file_path
         )) {
@@ -221,6 +221,8 @@ fn main() {
                         ORAConfig::default(),
                     );
                 let mut count = 0;
+                let output_file = File::create("test.json").expect("Could not create output file!");
+                serde_json::to_writer(output_file, &x).expect("Could not create JSON file!");
                 for i in x {
                     if i.p < 0.05 && i.fdr < 0.05 {
                         println!("{}: {}, {}, {}", i.set, i.p, i.fdr, i.overlap);
@@ -250,6 +252,9 @@ fn main() {
             );
             let res =
                 webgestalt_lib::methods::gsea::gsea(gene_list, gmt, GSEAConfig::default(), None);
+            let output_file =
+                File::create(&gsea_args.output).expect("Could not create output file!");
+            serde_json::to_writer(output_file, &res).expect("Could not create JSON file!");
             let mut count = 0;
             for i in res {
                 if i.p < 0.05 && i.fdr < 0.05 {
@@ -257,7 +262,10 @@ fn main() {
                     count += 1;
                 }
             }
-            println!("Done with GSEA: {}", count);
+            println!(
+                "Done with GSEA and found {} significant analyte sets",
+                count
+            );
         }
         Some(Commands::Ora(ora_args)) => {
             check_and_overwrite(&ora_args.output);
@@ -286,7 +294,7 @@ fn main() {
                 }
             }
             println!(
-                "Found {} significant pathways out of {} pathways",
+                "Found {} significant analyte sets out of {} sets",
                 count,
                 res.len()
             );
