@@ -1,3 +1,4 @@
+#![doc = include_str!("../README.md")]
 use clap::{Args, Parser};
 use clap::{Subcommand, ValueEnum};
 use owo_colors::{OwoColorize, Stream::Stdout, Style};

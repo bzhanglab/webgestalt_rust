@@ -1,10 +1,10 @@
+#![doc = include_str!("../README.md")]
 use std::{error::Error, fmt};
 
 pub mod methods;
 pub mod readers;
 pub mod stat;
 pub mod writers;
-
 trait CustomError {
     fn msg(&self) -> String;
 }

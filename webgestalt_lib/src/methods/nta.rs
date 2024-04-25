@@ -13,12 +13,16 @@ pub struct NTAConfig {
     pub reset_probability: f64,
     /// A float representing the tolerance for probability calculation
     pub tolerance: f64,
+    /// The [`NTAMethod`] to use for the analysis
     pub method: Option<NTAMethod>,
 }
 
+/// Different methods for the NTA method that decides the important nodes to return
 #[derive(Debug, Clone)]
 pub enum NTAMethod {
+    /// Find the N most important seeds, where N is the provided [`usize`] value
     Prioritize(usize),
+    /// Find the N most important non-seed nodes, where N is the provided [`usize`] value
     Expand(usize),
 }
 
@@ -34,19 +38,32 @@ impl Default for NTAConfig {
     }
 }
 
+/// Struct representing the NTA results
 #[derive(Debug, Serialize)]
 pub struct NTAResult {
+    /// The nodes in the neighborhood. Will always include every seed
     pub neighborhood: Vec<String>,
+    /// The random walk probabilities (score) for the nodes in the neighborhood
     pub scores: Vec<f64>,
+    /// If using the Prioritize method, contains the top N seeds. For expand method, this Vec is empty.
     pub candidates: Vec<String>,
 }
 
+/// Performs network topology-based analysis using random walk to identify important nodes in a network
+///
+/// ## Parameters
+///
+/// - `config`: A [`NTAConfig`] struct containing the parameters for the analysis.
+///
+/// ## Returns
+///
+/// Returns a [`NTAResult`] struct containing the results from the analysis. Is [serde](https://serde.rs/) compatible.
 pub fn get_nta(config: NTAConfig) -> NTAResult {
     let mut method = config.clone().method;
     if method.is_none() {
         method = Some(NTAMethod::Expand(10));
     }
-    let mut nta_res = nta(config.clone());
+    let mut nta_res = process_nta(config.clone());
     match method {
         Some(NTAMethod::Prioritize(size)) => {
             let only_seeds = nta_res
@@ -95,12 +112,16 @@ pub fn get_nta(config: NTAConfig) -> NTAResult {
     }
 }
 
-/// Uses random walk to calculate the neighborhood of a set of nodes
-/// Returns [`Vec<String>`]representing the nodes in the neighborhood
+/// Uses random walk to calculate the probabilities of each node being walked through
+/// Returns [`Vec<String>`] representing the nodes in the neighborhood
 ///
-/// # Parameters
-/// - `config` - A [`NTAOptions`] struct containing the edge list, seeds, neighborhood size, reset probability, and tolerance
-pub fn nta(config: NTAConfig) -> Vec<(String, f64)> {
+/// ## Parameters
+/// - `config` - A [`NTAConfig`] struct containing the edge list, seeds, neighborhood size, reset probability, and tolerance
+///
+/// ## Returns
+///
+/// Returns a [`Vec<(String, f64)>`] where the [`String`] is the original node name, and the following value is the random walk probability (higher is typically better)
+pub fn process_nta(config: NTAConfig) -> Vec<(String, f64)> {
     println!("Building Graph");
     let unique_nodes = ahash::AHashSet::from_iter(config.edge_list.iter().flatten().cloned());
     let mut node_map: ahash::AHashMap<String, usize> = ahash::AHashMap::default();
@@ -135,20 +156,32 @@ pub fn nta(config: NTAConfig) -> Vec<(String, f64)> {
         .collect()
 }
 
+/// calculates the probability each node will be walked when starting from the one of the seeds
+///
+/// ## Parameters
+///
+/// - `adj_matrix` - A 2d adjacency matrix, where 1 means the node at the row and column indices are connected
+/// - `seed_indices` - a [`Vec<usize>`] of the indices of the seeds (starting points)
+/// - `r` - a [`f64`] of the reset probability (default in WebGestaltR is 0.5)
+/// - `tolerance` - the tolerance/threshold value in [`f64`] (WebGestaltR default is `1e-6`)
+///
+/// ## Output
+///
+/// Returns 1d array containing the probability for each node
 fn random_walk_probability(
     adj_matrix: &ndarray::Array2<f64>,
-    node_indices: &Vec<usize>,
+    seed_indices: &Vec<usize>,
     r: f64,
     tolerance: f64,
 ) -> ndarray::Array1<f64> {
-    let num_nodes = node_indices.len() as f64;
+    let num_nodes = seed_indices.len() as f64;
     let de = adj_matrix.sum_axis(Axis(0));
     // de to 2d array
     let de = de.insert_axis(Axis(1));
     let temp = adj_matrix.t().div(de);
     let w = temp.t();
     let mut p0 = ndarray::Array1::from_elem(w.shape()[0], 0.0);
-    for i in node_indices {
+    for i in seed_indices {
         p0[*i] = 1.0 / num_nodes;
     }
     let mut pt = p0.clone();
