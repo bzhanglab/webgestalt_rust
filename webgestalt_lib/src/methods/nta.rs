@@ -17,9 +17,12 @@ pub struct NTAConfig {
     pub method: Option<NTAMethod>,
 }
 
+/// Different methods for the NTA method that decides the important nodes to return
 #[derive(Debug, Clone)]
 pub enum NTAMethod {
+    /// Find the N most important seeds, where N is the provided [`usize`] value
     Prioritize(usize),
+    /// Find the N most important non-seed nodes, where N is the provided [`usize`] value
     Expand(usize),
 }
 
@@ -35,10 +38,14 @@ impl Default for NTAConfig {
     }
 }
 
+/// Struct representing the NTA results
 #[derive(Debug, Serialize)]
 pub struct NTAResult {
+    /// The nodes in the neighborhood. Will always include every seed
     pub neighborhood: Vec<String>,
+    /// The random walk probabilities (score) for the nodes in the neighborhood
     pub scores: Vec<f64>,
+    /// If using the Prioritize method, contains the top N seeds. For expand method, this Vec is empty.
     pub candidates: Vec<String>,
 }
 
