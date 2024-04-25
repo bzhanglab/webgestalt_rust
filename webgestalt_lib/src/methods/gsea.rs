@@ -36,7 +36,6 @@ pub struct RankListItem {
 }
 
 struct PartialGSEAResult {
-    // TODO: Look at adding enrichment and normalized enrichment score
     set: String,
     p: f64,
     es: f64,
@@ -296,7 +295,7 @@ fn enrichment_score(
     )
 }
 
-/// Run GSEA and return a [`Vec<FullGSEAResult`] for all analayte sets.
+/// Run GSEA and return a [`Vec<FullGSEAResult>`] for all analayte sets.
 ///
 /// # Parameters
 ///

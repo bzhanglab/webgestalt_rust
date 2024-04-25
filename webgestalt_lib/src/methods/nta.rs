@@ -116,7 +116,7 @@ pub fn get_nta(config: NTAConfig) -> NTAResult {
 /// Returns [`Vec<String>`] representing the nodes in the neighborhood
 ///
 /// ## Parameters
-/// - `config` - A [`NTAOptions`] struct containing the edge list, seeds, neighborhood size, reset probability, and tolerance
+/// - `config` - A [`NTAConfig`] struct containing the edge list, seeds, neighborhood size, reset probability, and tolerance
 ///
 /// ## Returns
 ///

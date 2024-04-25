@@ -59,7 +59,7 @@ pub enum NormalizationMethod {
 /// # Parameters
 ///
 /// - `jobs` - A [`Vec<GSEAJob>`] containing all of the separates 'jobs' or analysis to combine
-/// - `method` - A [`MultiOmicsMethod`] enum detailing the analysis method to combine the runs together (meta-analysis, mean median ration, or max median ratio).
+/// - `method` - A [`MultiListMethod`] enum detailing the analysis method to combine the runs together (meta-analysis, mean median ration, or max median ratio).
 /// - `fdr_method` - [`AdjustmentMethod`] of what FDR method to use to adjust p-values
 ///
 /// # Returns

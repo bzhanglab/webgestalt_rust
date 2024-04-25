@@ -53,14 +53,6 @@ pub fn ora_p(m: i64, j: i64, n: i64, k: i64) -> f64 {
 /// - `interest_list` - A [`AHashSet<String>`] of the interesting analytes
 /// - `reference` - A [`AHashSet<String>`] of the reference list
 /// - `gmt` - A [`Vec<Item>`] of the gmt file
-///
-/// # Panics
-///
-/// Panics if the [`Arc`] struggles to lock during parallelization.
-///
-/// # Errors
-///
-/// This function will return an error if .
 pub fn get_ora(
     interest_list: &AHashSet<String>,
     reference: &AHashSet<String>,
