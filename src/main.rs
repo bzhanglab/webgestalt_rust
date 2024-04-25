@@ -10,10 +10,6 @@ use webgestalt_lib::methods::nta::NTAConfig;
 use webgestalt_lib::methods::ora::ORAConfig;
 use webgestalt_lib::readers::utils::Item;
 use webgestalt_lib::readers::{read_gmt_file, read_rank_file};
-
-/// WebGestalt CLI.
-/// ORA and GSEA enrichment tool.
-/// Created by John Elizarraras from the Bing Zhang Lab.
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
 struct CliArgs {

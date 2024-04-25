@@ -20,3 +20,5 @@ ref.txt
 target_symbols.txt
 /*.gmt
 /*.rnk
+test.json
+test.txt
