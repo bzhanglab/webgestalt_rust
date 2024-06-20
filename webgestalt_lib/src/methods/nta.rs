@@ -141,7 +141,7 @@ pub fn process_nta(config: NTAConfig) -> Vec<(String, f64)> {
     let node_indices: Vec<usize> = config
         .seeds
         .iter()
-        .map(|seed| *node_map.get(seed).unwrap())
+        .filter_map(|seed| node_map.get(seed).cloned())
         .collect();
     let walk_res = random_walk_probability(
         &graph,
