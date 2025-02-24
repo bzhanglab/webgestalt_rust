@@ -1,5 +1,15 @@
 {
     "rust-analyzer.linkedProjects": [
         "./webgestalt_lib/Cargo.toml"
+    ],
+    "cSpell.words": [
+        "analyte",
+        "analytes",
+        "genelist",
+        "gmts",
+        "Gsea",
+        "ktest",
+        "multilist",
+        "webgestalt"
     ]
 }
