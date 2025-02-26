@@ -29,6 +29,20 @@ enum Commands {
     Nta(NtaArgs),
     /// Combine multiple files into a single file
     Combine(CombineArgs),
+    Integrated(
+        /// Run integrated GSEA on the provided files
+        IntegratedArgs,
+    ),
+}
+#[derive(Args)]
+struct IntegratedArgs {
+    /// Path to the GMT file of interest
+    #[arg(short, long)]
+    gmt: String,
+    rnk: Vec<String>,
+    /// Output path for the results
+    #[arg(short, long, default_value = "out.json")]
+    output: String,
 }
 
 #[derive(Debug, Args)]
