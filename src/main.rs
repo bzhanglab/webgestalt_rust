@@ -10,6 +10,9 @@ use webgestalt_lib::methods::nta::NTAConfig;
 use webgestalt_lib::methods::ora::ORAConfig;
 use webgestalt_lib::readers::utils::Item;
 use webgestalt_lib::readers::{read_gmt_file, read_rank_file};
+#[cfg(feature = "experimental")]
+use webgestalt_lib::methods::experimental::integrated_gsea;
+
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
 struct CliArgs {
@@ -402,6 +405,12 @@ fn main() {
                 println!("Please select a valid combine type");
             }
         },
+        Some(Commands::Integrated(args)) => {
+            #[cfg(not(feature = "experimental"))]
+            panic!("Integrated GSEA is not available in this version. Please enable the experimental feature in Cargo.toml.");
+            println!("Running integrated GSEA");
+            println!("{:?}", args.rnk)
+        }
         _ => {
             println!("Please select a valid command. Run --help for options.")
         }

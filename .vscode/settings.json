@@ -11,5 +11,8 @@
         "ktest",
         "multilist",
         "webgestalt"
-    ]
+    ],
+    "rust-analyzer.cargo.features": [
+    "experimental"
+  ],
 }

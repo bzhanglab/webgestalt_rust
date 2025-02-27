@@ -25,3 +25,7 @@ pretty_assertions = "1.4.0"
 
 [profile.release]
 opt-level = 3
+
+[features]
+default = []
+experimental = []
