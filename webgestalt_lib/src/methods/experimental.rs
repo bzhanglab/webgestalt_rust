@@ -1,6 +1,28 @@
-// Experimental methods for WebGestalt
+use std::default;
 
-use crate::readers::read_rank_file;
+/// Experimental methods for WebGestalt
+use crate::readers::{read_rank_file, utils::Item};
+
+use super::gsea::make_permutations;
+struct PartialGSEAResult {
+    rank: f64,
+    p_value: f64,
+    enrichment_score: f64,
+    set_size: usize,
+    set_name: String,
+}
+
+impl PartialGSEAResult {
+    fn new() -> Self {
+        PartialGSEAResult {
+            rank: 0.0,
+            p_value: 0.0,
+            enrichment_score: 0.0,
+            set_size: 0,
+            set_name: String::new(),
+        }
+    }
+}
 
 pub fn integrated_gsea(
     gmt_file: &str,
@@ -19,5 +41,10 @@ pub fn integrated_gsea(
     }
     // Sort ranks from large to small
     ranks.sort_by(|a, b| b.2.total_cmp(&a.2));
+    let permutations: Vec<Vec<usize>> = make_permutations(1000, ranks.len());
     Ok(())
+}
+
+fn enrich_set(ranks: &[(usize, String, f64)], set: &Item) -> PartialGSEAResult {
+    PartialGSEAResult::new()
 }
