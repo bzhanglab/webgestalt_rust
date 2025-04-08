@@ -379,6 +379,13 @@ pub fn gsea(
             .filter(|&x| x.abs() >= nes_abs)
             .count() as f64;
         let fdr: f64 = (top_val * bottom_len) / (bottom_val * top_len); // get FDR value
+        let fdr = if fdr.is_nan() {
+            0.0
+        } else if fdr > 1.0 {
+            1.0
+        } else {
+            fdr
+        };
         final_gsea.push(item.add_fdr(fdr));
     }
     final_gsea
