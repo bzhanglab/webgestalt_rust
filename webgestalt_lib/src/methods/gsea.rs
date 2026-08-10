@@ -16,6 +16,10 @@ pub struct GSEAConfig {
     pub max_overlap: i32,
     /// Number of permutations to use in the analysis
     pub permutations: i32,
+    /// Optional RNG seed. `None` draws from system entropy, so results differ
+    /// between runs. `Some(seed)` makes the permutations - and therefore the
+    /// p-values - reproducible.
+    pub seed: Option<u64>,
 }
 
 impl Default for GSEAConfig {
@@ -25,6 +29,7 @@ impl Default for GSEAConfig {
             min_overlap: 15,
             max_overlap: 500,
             permutations: 1000,
+            seed: None,
         }
     }
 }
@@ -315,7 +320,11 @@ pub fn gsea(
     analyte_list.sort_by(|a, b| b.rank.partial_cmp(&a.rank).unwrap()); // sort list
     let (analytes, ranks) = RankListItem::to_vecs(analyte_list.clone()); // seperate into vectors
     let permutations: Vec<Vec<usize>> =
-        provided_permutations.unwrap_or(make_permutations(config.permutations, analytes.len()));
+        provided_permutations.unwrap_or(make_permutations(
+            config.permutations,
+            analytes.len(),
+            config.seed,
+        ));
     let partial_results: Vec<PartialGSEAResult> = gmt
         .par_iter()
         .map(|analyte_set| {
@@ -406,13 +415,16 @@ pub fn gsea(
 ///
 /// ```
 /// use webgestalt_lib::methods::gsea::make_permutations;
-/// let permutations = make_permutations(10, 100);
+/// let permutations = make_permutations(10, 100, None);
 /// assert_eq!(permutations.len(), 10);
 /// assert_eq!(permutations[0].len(), 100);
 /// ```
-pub fn make_permutations(permutations: i32, max: usize) -> Vec<Vec<usize>> {
+pub fn make_permutations(permutations: i32, max: usize, seed: Option<u64>) -> Vec<Vec<usize>> {
     let mut temp_permutations: Vec<Vec<usize>> = Vec::new();
-    let mut smallrng = rand::rngs::SmallRng::from_entropy();
+    let mut smallrng = match seed {
+        Some(s) => rand::rngs::SmallRng::seed_from_u64(s),
+        None => rand::rngs::SmallRng::from_entropy(),
+    };
     (0..permutations).for_each(|_i| {
         // get random permutations that are shared for all analyte sets
         let mut new_order: Vec<usize> = (0..max).collect();
