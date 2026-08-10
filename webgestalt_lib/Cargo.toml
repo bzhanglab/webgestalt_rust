@@ -13,7 +13,7 @@ repository = "https://github.com/bzhanglab/webgestalt_rust"
 [dependencies]
 csv = "1.3.0"
 serde = { version = "1.0.190", features = ["std", "derive"] }
-rand = { version = "0.8.5", features = ["small_rng"] }
+rand = { version = "0.9.3", features = ["small_rng"] }
 rayon = "1.8.0"
 statrs = "0.16.0"
 ahash = "0.8.6"
