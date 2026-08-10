@@ -1,5 +1,5 @@
 use ahash::{AHashMap, AHashSet};
-use statrs::distribution::{Continuous, ContinuousCDF, Normal};
+use statrs::distribution::{ContinuousCDF, Normal};
 
 use super::{
     gsea::{GSEAConfig, GSEAResult, RankListItem},
@@ -22,7 +22,6 @@ pub enum MultiListMethod {
 
 pub enum MetaAnalysisMethod {
     Stouffer,
-    Fisher,
 }
 
 pub enum AnalysisType {
@@ -91,11 +90,6 @@ pub fn multilist_gsea(
                     meta_p.push(stouffer_with_normal(&phash[set], &normal))
                 }
             }
-            MetaAnalysisMethod::Fisher => {
-                for set in phash.keys() {
-                    meta_p.push(fisher(&phash[set]));
-                }
-            }
         }
         let meta_fdr = adjust(&meta_p, fdr_method);
         for (i, set) in phash.keys().enumerate() {
@@ -160,11 +154,6 @@ pub fn multilist_ora(
                     let normal = Normal::new(0.0, 1.0).unwrap();
                     for set in phash.keys() {
                         meta_p.push(stouffer_with_normal(&phash[set], &normal))
-                    }
-                }
-                MetaAnalysisMethod::Fisher => {
-                    for set in phash.keys() {
-                        meta_p.push(fisher(&phash[set]));
                     }
                 }
             }
@@ -364,13 +353,6 @@ pub fn stouffer(vals: &Vec<f64>) -> f64 {
 fn stouffer_with_normal(vals: &Vec<f64>, normal: &Normal) -> f64 {
     let k = vals.len();
     normal.cdf(vals.iter().map(|x| normal.inverse_cdf(*x)).sum::<f64>() / f64::sqrt(k as f64))
-}
-
-pub fn fisher(vals: &Vec<f64>) -> f64 {
-    let k = vals.len();
-    let pt = -2.0 * vals.iter().map(|x| x.ln()).sum::<f64>();
-    let dist = statrs::distribution::ChiSquared::new(2_f64.powi(k as i32 - 1)).unwrap();
-    dist.pdf(pt)
 }
 
 /// Calculates meta-p values using the Stouffer weighted method ([10.1214/aoms/1177698861](https://doi.org/10.1214/aoms/1177698861)) of `vals` with weights in `weights`
