@@ -421,17 +421,9 @@ pub fn gsea(
 /// ```
 pub fn make_permutations(permutations: i32, max: usize, seed: Option<u64>) -> Vec<Vec<usize>> {
     let mut temp_permutations: Vec<Vec<usize>> = Vec::new();
-    // `from_os_rng` is rand 0.9's name for what was `from_entropy`.
-    //
-    // Note that 0.9 changed what a seed *means*: it reimplemented
-    // `SmallRng::seed_from_u64` and replaced the `shuffle` algorithm, both listed under
-    // "Reproducibility-breaking changes". A given seed therefore produces different
-    // permutations here than it did under 0.8, and so different p-values. Verified rather
-    // than assumed — seed 42 gives [16, 2, 5, 14, …] under 0.8 and [16, 17, 19, 6, …] here.
-    // Seeds are comparable within a version of this crate, not across versions.
     let mut smallrng = match seed {
         Some(s) => rand::rngs::SmallRng::seed_from_u64(s),
-        None => rand::rngs::SmallRng::from_os_rng(),
+        None => rand::rngs::SmallRng::from_entropy(),
     };
     (0..permutations).for_each(|_i| {
         // get random permutations that are shared for all analyte sets
